@@ -2,7 +2,6 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
-import { usernameToEmail } from '@/lib/auth'
 import { TeamSector, TEAM_LABELS, DAYS_LABELS } from '@/types/database'
 
 type Tab = 'login' | 'register'
@@ -12,12 +11,12 @@ export default function LoginPage() {
   const [tab, setTab] = useState<Tab>('login')
 
   // Login state
-  const [username, setUsername] = useState('')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
 
   // Register state
   const [regName, setRegName] = useState('')
-  const [regUsername, setRegUsername] = useState('')
+  const [regEmail, setRegEmail] = useState('')
   const [regPassword, setRegPassword] = useState('')
   const [regConfirm, setRegConfirm] = useState('')
   const [regTeam, setRegTeam] = useState<TeamSector | ''>('')
@@ -32,10 +31,9 @@ export default function LoginPage() {
     setLoading(true)
     setError('')
     const supabase = createClient()
-    const email = usernameToEmail(username)
-    const { error: signInErr } = await supabase.auth.signInWithPassword({ email, password })
+    const { error: signInErr } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password })
     if (signInErr) {
-      setError('Usuário ou senha inválidos.')
+      setError('E-mail ou senha inválidos.')
       setLoading(false)
       return
     }
@@ -73,33 +71,49 @@ export default function LoginPage() {
       return
     }
 
+    const emailNorm = regEmail.trim().toLowerCase()
     const supabase = createClient()
-    const email = usernameToEmail(regUsername)
 
+    // Checar se email já existe
     const { data: existing } = await supabase
       .from('profiles')
       .select('id')
-      .eq('username', regUsername.trim().toLowerCase())
+      .eq('email', emailNorm)
       .single()
 
     if (existing) {
-      setError('Este usuário já está em uso.')
+      setError('Este e-mail já está cadastrado.')
       setLoading(false)
       return
     }
 
-    const { data: authData, error: signUpErr } = await supabase.auth.signUp({ email, password: regPassword })
-    if (signUpErr || !authData.user) {
-      setError('Erro ao criar conta. Tente outro nome de usuário.')
+    // Criar conta no Supabase Auth
+    const { data: authData, error: signUpErr } = await supabase.auth.signUp({
+      email: emailNorm,
+      password: regPassword,
+      options: { data: { name: regName.trim() } }
+    })
+
+    if (signUpErr) {
+      setError(`Erro ao criar conta: ${signUpErr.message}`)
       setLoading(false)
       return
     }
+
+    if (!authData.user) {
+      setError('Erro inesperado ao criar conta.')
+      setLoading(false)
+      return
+    }
+
+    // Login imediato para ter sessão antes do insert
+    await supabase.auth.signInWithPassword({ email: emailNorm, password: regPassword })
 
     const { error: profileErr } = await supabase.from('profiles').insert({
       id: crypto.randomUUID(),
       name: regName.trim(),
-      email,
-      username: regUsername.trim().toLowerCase(),
+      email: emailNorm,
+      username: emailNorm.split('@')[0],
       auth_user_id: authData.user.id,
       role: 'voluntario',
       status: 'pendente',
@@ -110,10 +124,13 @@ export default function LoginPage() {
     })
 
     if (profileErr) {
-      setError('Erro ao salvar perfil.')
+      setError(`Erro ao salvar perfil: ${profileErr.message}`)
       setLoading(false)
       return
     }
+
+    // Logout — precisa de aprovação do admin
+    await supabase.auth.signOut()
 
     setSuccess('Solicitação enviada! Aguarde a aprovação do administrador.')
     setLoading(false)
@@ -121,7 +138,7 @@ export default function LoginPage() {
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
-      {/* Background glow — monochrome */}
+      {/* Background glow */}
       <div style={{ position: 'fixed', inset: 0, overflow: 'hidden', pointerEvents: 'none', zIndex: 0 }}>
         <div style={{ position: 'absolute', top: '15%', left: '50%', transform: 'translateX(-50%)', width: 700, height: 700, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,255,255,0.03) 0%, transparent 65%)' }} />
       </div>
@@ -176,8 +193,8 @@ export default function LoginPage() {
           {tab === 'login' ? (
             <form onSubmit={handleLogin}>
               <div className="form-group">
-                <label>Usuário</label>
-                <input type="text" placeholder="seu.usuario" value={username} onChange={e => setUsername(e.target.value)} required autoFocus autoComplete="username" />
+                <label>E-mail</label>
+                <input type="email" placeholder="seu@email.com" value={email} onChange={e => setEmail(e.target.value)} required autoFocus autoComplete="email" />
               </div>
               <div className="form-group" style={{ marginBottom: 24 }}>
                 <label>Senha</label>
@@ -195,8 +212,8 @@ export default function LoginPage() {
                 <input type="text" placeholder="Seu Nome" value={regName} onChange={e => setRegName(e.target.value)} required autoFocus />
               </div>
               <div className="form-group">
-                <label>Usuário</label>
-                <input type="text" placeholder="seu.usuario" value={regUsername} onChange={e => setRegUsername(e.target.value.toLowerCase().replace(/[^a-z0-9._-]/g, ''))} required autoComplete="username" />
+                <label>E-mail</label>
+                <input type="email" placeholder="seu@email.com" value={regEmail} onChange={e => setRegEmail(e.target.value)} required autoComplete="email" />
               </div>
               
               <div className="form-group">
