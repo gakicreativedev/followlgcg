@@ -1,4 +1,5 @@
-export type UserRole = 'pastor' | 'lider' | 'vice_lider' | 'voluntario'
+export type UserRole = 'admin' | 'pastor' | 'lider' | 'vice_lider' | 'voluntario'
+export type UserStatus = 'pendente' | 'ativo' | 'inativo'
 export type TaskStatus = 'pendente' | 'andamento' | 'revisao' | 'concluido'
 export type ContentType = 'post_story' | 'carrossel' | 'reels' | 'video_elaborado' | 'arte_grafica'
 
@@ -6,7 +7,10 @@ export interface Profile {
   id: string
   name: string
   email: string
+  username?: string
+  auth_user_id?: string
   role: UserRole
+  status?: UserStatus
   avatar_url?: string
   created_at: string
   updated_at: string
@@ -71,6 +75,7 @@ export const STATUS_LABELS: Record<TaskStatus, string> = {
 }
 
 export const ROLE_LABELS: Record<UserRole, string> = {
+  admin: 'Administrador',
   pastor: 'Pastor',
   lider: 'Líder',
   vice_lider: 'Vice-líder',

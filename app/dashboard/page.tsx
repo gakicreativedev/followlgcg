@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
+import { getCurrentProfile } from '@/lib/auth'
 import { Profile, Task, TaskStatus, STATUS_LABELS, CONTENT_TYPE_LABELS } from '@/types/database'
 import TaskCard from '@/components/TaskCard'
 import { useRouter } from 'next/navigation'
@@ -28,15 +29,12 @@ export default function DashboardPage() {
 
   useEffect(() => {
     async function load() {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      const { data: prof } = await supabase.from('profiles').select('*').eq('email', user.email).single()
+      const prof = await getCurrentProfile()
       if (!prof) return
       setProfile(prof)
 
-      const { data: team } = await supabase.from('profiles').select('*')
+      const supabase = createClient()
+      const { data: team } = await supabase.from('profiles').select('*').eq('status', 'ativo')
       if (team) setTeamProfiles(team)
 
       let query = supabase.from('tasks').select('*').order('due_date', { ascending: true })
@@ -55,6 +53,7 @@ export default function DashboardPage() {
       setLoading(false)
     }
     load()
+
   }, [refresh])
 
   if (loading || !profile) return null
