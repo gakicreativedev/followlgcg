@@ -3,18 +3,23 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 
+// Converte nome de usuário para e-mail interno usado no Supabase
+function usernameToEmail(username: string): string {
+  return `${username.trim().toLowerCase()}@followlgcg.app`
+}
+
 export default function LoginPage() {
   const router = useRouter()
-  const [email, setEmail] = useState('')
+  const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
   const DEMO_ACCOUNTS = [
-    { email: 'pastor@igreja.com', label: 'Pastor André', role: 'Pastor' },
-    { email: 'lider@igreja.com', label: 'Lucas Líder', role: 'Líder' },
-    { email: 'vice@igreja.com', label: 'Marina Vice', role: 'Vice-líder' },
-    { email: 'ana@igreja.com', label: 'Ana Lima', role: 'Voluntária' },
+    { username: 'pastor.andre', label: 'Pastor André', role: 'Pastor' },
+    { username: 'lucas.lider', label: 'Lucas Líder', role: 'Líder' },
+    { username: 'marina.vice', label: 'Marina Vice', role: 'Vice-líder' },
+    { username: 'ana.lima', label: 'Ana Lima', role: 'Voluntária' },
   ]
 
   async function handleLogin(e: React.FormEvent) {
@@ -22,17 +27,18 @@ export default function LoginPage() {
     setLoading(true)
     setError('')
     const supabase = createClient()
+    const email = usernameToEmail(username)
     const { error: signInErr } = await supabase.auth.signInWithPassword({ email, password })
     if (signInErr) {
       const { error: signUpErr } = await supabase.auth.signUp({ email, password })
-      if (signUpErr) { setError('Credenciais inválidas.'); setLoading(false); return }
+      if (signUpErr) { setError('Usuário ou senha inválidos.'); setLoading(false); return }
     }
     router.push('/dashboard')
     router.refresh()
   }
 
-  function fillDemo(demoEmail: string) {
-    setEmail(demoEmail)
+  function fillDemo(demoUsername: string) {
+    setUsername(demoUsername)
     setPassword('demo123')
     setError('')
   }
@@ -98,12 +104,27 @@ export default function LoginPage() {
         <div className="card" style={{ marginBottom: '1rem' }}>
           <form onSubmit={handleLogin}>
             <div className="form-group">
-              <label>E-mail</label>
-              <input type="email" placeholder="seu@email.com" value={email} onChange={e => setEmail(e.target.value)} required autoFocus />
+              <label>Usuário</label>
+              <input
+                type="text"
+                placeholder="seu.usuario"
+                value={username}
+                onChange={e => setUsername(e.target.value)}
+                required
+                autoFocus
+                autoComplete="username"
+              />
             </div>
             <div className="form-group" style={{ marginBottom: 22 }}>
               <label>Senha</label>
-              <input type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} required />
+              <input
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                required
+                autoComplete="current-password"
+              />
             </div>
             {error && (
               <p style={{ fontSize: 12, color: 'var(--red)', marginBottom: 14, textAlign: 'center' }}>{error}</p>
@@ -122,23 +143,23 @@ export default function LoginPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             {DEMO_ACCOUNTS.map(acc => (
               <button
-                key={acc.email}
-                onClick={() => fillDemo(acc.email)}
+                key={acc.username}
+                onClick={() => fillDemo(acc.username)}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 12,
                   padding: '9px 12px', borderRadius: 9,
-                  background: email === acc.email ? 'rgba(196,160,80,0.08)' : 'transparent',
-                  border: `1px solid ${email === acc.email ? 'rgba(196,160,80,0.3)' : 'transparent'}`,
+                  background: username === acc.username ? 'rgba(196,160,80,0.08)' : 'transparent',
+                  border: `1px solid ${username === acc.username ? 'rgba(196,160,80,0.3)' : 'transparent'}`,
                   cursor: 'pointer', transition: 'all 0.15s', textAlign: 'left', width: '100%',
                 }}
               >
                 <div style={{
                   width: 32, height: 32, borderRadius: '50%',
-                  background: email === acc.email ? 'rgba(196,160,80,0.15)' : 'rgba(255,255,255,0.04)',
-                  border: `1px solid ${email === acc.email ? 'rgba(196,160,80,0.3)' : 'rgba(255,255,255,0.08)'}`,
+                  background: username === acc.username ? 'rgba(196,160,80,0.15)' : 'rgba(255,255,255,0.04)',
+                  border: `1px solid ${username === acc.username ? 'rgba(196,160,80,0.3)' : 'rgba(255,255,255,0.08)'}`,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: 11, fontWeight: 600,
-                  color: email === acc.email ? 'var(--gold)' : 'var(--text-muted)',
+                  color: username === acc.username ? 'var(--gold)' : 'var(--text-muted)',
                   fontFamily: 'var(--font-main)',
                 }}>
                   {acc.label.charAt(0)}
