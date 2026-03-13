@@ -10,12 +10,18 @@ export default function PerfilPage() {
   const [uploading, setUploading] = useState(false)
   const [avatarUrl, setAvatarUrl] = useState('')
 
+  // Edição de nome
+  const [editingName, setEditingName] = useState(false)
+  const [nameValue, setNameValue] = useState('')
+  const [savingName, setSavingName] = useState(false)
+
   useEffect(() => {
     async function load() {
       const prof = await getCurrentProfile()
       if (prof) {
         setProfile(prof)
         setAvatarUrl(prof.avatar_url || '')
+        setNameValue(prof.name)
       }
       setLoading(false)
     }
@@ -52,6 +58,16 @@ export default function PerfilPage() {
     await supabase.from('profiles').update({ avatar_url: null, updated_at: new Date().toISOString() }).eq('id', profile.id)
     setAvatarUrl('')
     setProfile({ ...profile, avatar_url: undefined })
+  }
+
+  async function saveName() {
+    if (!profile || !nameValue.trim()) return
+    setSavingName(true)
+    const supabase = createClient()
+    await supabase.from('profiles').update({ name: nameValue.trim(), updated_at: new Date().toISOString() }).eq('id', profile.id)
+    setProfile({ ...profile, name: nameValue.trim() })
+    setEditingName(false)
+    setSavingName(false)
   }
 
   if (loading || !profile) return null
@@ -94,7 +110,38 @@ export default function PerfilPage() {
           </div>
 
           <div>
-            <h2 style={{ fontSize: 22, fontWeight: 600, letterSpacing: '-0.02em', marginBottom: 4 }}>{profile.name}</h2>
+            {/* Nome editável */}
+            {editingName ? (
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 4 }}>
+                <input
+                  autoFocus
+                  value={nameValue}
+                  onChange={e => setNameValue(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && saveName()}
+                  className="input-field"
+                  style={{ fontSize: 16, fontWeight: 600, padding: '6px 12px', width: 200 }}
+                />
+                <button className="btn btn-primary" onClick={saveName} disabled={savingName} style={{ padding: '6px 12px', fontSize: 12 }}>
+                  {savingName ? '...' : 'Salvar'}
+                </button>
+                <button className="btn btn-ghost" onClick={() => { setEditingName(false); setNameValue(profile.name) }} style={{ padding: '6px 10px', fontSize: 12 }}>
+                  ✕
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                <h2 style={{ fontSize: 22, fontWeight: 600, letterSpacing: '-0.02em' }}>{profile.name}</h2>
+                <button
+                  onClick={() => setEditingName(true)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 14, padding: 4, transition: 'color 0.2s' }}
+                  onMouseEnter={e => e.currentTarget.style.color = 'var(--text-primary)'}
+                  onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+                  title="Editar nome"
+                >
+                  ✏️
+                </button>
+              </div>
+            )}
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
               <span className={`badge badge-${profile.role}`}>{ROLE_LABELS[profile.role]}</span>
               {profile.team && <span className="badge badge-team">{TEAM_LABELS[profile.team]}</span>}
@@ -118,10 +165,6 @@ export default function PerfilPage() {
         {/* Info */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
           <div>
-            <p style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 6 }}>Usuário</p>
-            <p style={{ fontSize: 15, color: 'var(--text-primary)', fontWeight: 500 }}>@{profile.username || profile.email.split('@')[0]}</p>
-          </div>
-          <div>
             <p style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 6 }}>E-mail</p>
             <p style={{ fontSize: 15, color: 'var(--text-primary)', fontWeight: 500 }}>{profile.email}</p>
           </div>
@@ -138,3 +181,4 @@ export default function PerfilPage() {
     </div>
   )
 }
+
