@@ -2,9 +2,10 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { getCurrentProfile } from '@/lib/auth'
-import { Profile, Task, TaskStatus, STATUS_LABELS, CONTENT_TYPE_LABELS } from '@/types/database'
+import { Profile, Task, TaskStatus, STATUS_LABELS, CONTENT_TYPE_LABELS, TEAM_LABELS, TeamSector } from '@/types/database'
 import TaskCard from '@/components/TaskCard'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 
 function MetricCard({ label, value, color }: { label: string; value: number; color?: string }) {
   return (
@@ -68,24 +69,18 @@ export default function DashboardPage() {
 
   const canEdit = ['pastor', 'lider', 'vice_lider'].includes(profile.role) || profile.role === 'voluntario'
 
-  // Pastor view
-  if (profile.role === 'pastor') {
-    const byPerson = teamProfiles
-      .filter(p => p.role === 'voluntario')
-      .map(p => ({
-        ...p,
-        total: tasks.filter(t => t.assigned_to === p.id).length,
-        done: tasks.filter(t => t.assigned_to === p.id && t.status === 'concluido').length,
-      }))
+  // Admin / Pastor view
+  if (profile.role === 'admin' || profile.role === 'pastor') {
+    const teams = Object.keys(TEAM_LABELS) as TeamSector[]
 
     return (
       <div className="fade-in">
-        <div style={{ marginBottom: 28 }}>
-          <h1 style={{ fontSize: 22, fontWeight: 600, color: 'var(--text-primary)' }}>Bom dia, {profile.name.split(' ')[0]}</h1>
-          <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>Visão geral da equipe de mídia</p>
+        <div style={{ marginBottom: 36 }}>
+          <h1 style={{ fontSize: 28, fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.03em' }}>Bom dia, {profile.name.split(' ')[0]}</h1>
+          <p style={{ fontSize: 15, color: 'var(--text-secondary)', marginTop: 6, fontWeight: 400, letterSpacing: '-0.01em' }}>Visão geral da sua Igreja</p>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 28 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 36 }}>
           <MetricCard label="Total" value={counts.total} />
           <MetricCard label="Em andamento" value={counts.andamento} color="var(--blue)" />
           <MetricCard label="Em revisão" value={counts.revisao} color="var(--pink)" />
@@ -94,28 +89,44 @@ export default function DashboardPage() {
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
           <div>
-            <p className="section-title">Produção da equipe</p>
-            <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {byPerson.map((p, i) => {
-                const pct = p.total > 0 ? Math.round((p.done / p.total) * 100) : 0
-                const colors = ['#7c6af7','#3ecf8e','#4a9eff','#f5a623','#e879a0']
+            <p className="section-title">Nossas Equipes</p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              {teams.map(t => {
+                const teamUsers = teamProfiles.filter(p => p.team === t).length
+                const teamTasksTotal = tasks.filter(task => task.team_target === t).length
+                const teamTasksDone = tasks.filter(task => task.team_target === t && task.status === 'concluido').length
+                const teamTasksPending = teamTasksTotal - teamTasksDone
+
                 return (
-                  <div key={p.id}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                      <div className="avatar" style={{ width: 28, height: 28, fontSize: 11, background: 'var(--bg-elevated)', color: colors[i % colors.length] }}>
-                        {initials(p.name)}
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: 13, color: 'var(--text-primary)' }}>{p.name}</span>
-                          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{p.done}/{p.total}</span>
+                  <Link href={`/dashboard/equipes/${t}`} key={t} style={{ textDecoration: 'none' }}>
+                    <div style={{
+                      background: 'var(--glass-2)',
+                      border: '1px solid var(--border)',
+                      borderRadius: 18,
+                      padding: '20px',
+                      transition: 'all 0.35s cubic-bezier(0.32, 0.72, 0, 1)',
+                      cursor: 'pointer',
+                      boxShadow: '0 2px 16px rgba(0,0,0,0.1)'
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-highlight)'; e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 32px rgba(0,0,0,0.2)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 16px rgba(0,0,0,0.1)'; }}
+                    >
+                      <h3 style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 12 }}>{TEAM_LABELS[t]}</h3>
+                      
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                        <div>
+                          <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>Membros ativos</p>
+                          <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>{teamUsers}</p>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>Tarefas</p>
+                          <p style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                            <span style={{ color: 'var(--accent-light)', fontWeight: 600 }}>{teamTasksPending}</span> pend. / <span style={{ color: 'var(--green)' }}>{teamTasksDone}</span> concl.
+                          </p>
                         </div>
                       </div>
                     </div>
-                    <div style={{ height: 4, background: 'var(--border)', borderRadius: 2, overflow: 'hidden' }}>
-                      <div style={{ height: '100%', width: `${pct}%`, background: colors[i % colors.length], borderRadius: 2, transition: 'width 0.5s' }} />
-                    </div>
-                  </div>
+                  </Link>
                 )
               })}
             </div>

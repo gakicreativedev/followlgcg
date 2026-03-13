@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { getCurrentProfile } from '@/lib/auth'
-import { Profile, UserRole, ROLE_LABELS } from '@/types/database'
+import { Profile, UserRole, ROLE_LABELS, TeamSector, TEAM_LABELS, DAYS_LABELS } from '@/types/database'
 
 function initials(name: string) {
   return name.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)
@@ -15,6 +15,7 @@ export default function CadastrosPage() {
   const [loading, setLoading] = useState(true)
   const [updatingId, setUpdatingId] = useState<string | null>(null)
   const [roleMap, setRoleMap] = useState<Record<string, UserRole>>({})
+  const [teamMap, setTeamMap] = useState<Record<string, TeamSector>>({})
 
   useEffect(() => {
     async function load() {
@@ -33,9 +34,14 @@ export default function CadastrosPage() {
 
       if (data) {
         setPending(data)
-        const map: Record<string, UserRole> = {}
-        data.forEach((p: Profile) => { map[p.id] = 'voluntario' })
-        setRoleMap(map)
+        const rMap: Record<string, UserRole> = {}
+        const tMap: Record<string, TeamSector> = {}
+        data.forEach((p: Profile) => { 
+          rMap[p.id] = 'voluntario' 
+          if (p.team) tMap[p.id] = p.team
+        })
+        setRoleMap(rMap)
+        setTeamMap(tMap)
       }
       setLoading(false)
     }
@@ -48,6 +54,7 @@ export default function CadastrosPage() {
     await supabase.from('profiles').update({
       status: 'ativo',
       role: roleMap[user.id] ?? 'voluntario',
+      team: teamMap[user.id] ?? user.team ?? null,
       updated_at: new Date().toISOString(),
     }).eq('id', user.id)
     setPending(prev => prev.filter(p => p.id !== user.id))
@@ -70,6 +77,7 @@ export default function CadastrosPage() {
   if (loading) return null
 
   const roles: UserRole[] = ['pastor', 'lider', 'vice_lider', 'voluntario']
+  const teams = Object.keys(TEAM_LABELS) as TeamSector[]
 
   return (
     <div className="fade-in">
@@ -102,33 +110,62 @@ export default function CadastrosPage() {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)' }}>{user.name}</p>
                 <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>@{user.username ?? user.email.split('@')[0]}</p>
-                <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                
+                {user.available_days && user.available_days.length > 0 && (
+                  <div style={{ display: 'flex', gap: 4, marginTop: 6, flexWrap: 'wrap' }}>
+                    {user.available_days.map(d => (
+                      <span key={d} className="badge" style={{ background: 'var(--glass-2)', border: '1px solid var(--border)', fontSize: 9 }}>
+                        {DAYS_LABELS[d] ?? d}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                
+                <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 8 }}>
                   Solicitado em {new Date(user.created_at).toLocaleDateString('pt-BR')}
                 </p>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <select
-                  value={roleMap[user.id] ?? 'voluntario'}
-                  onChange={e => setRoleMap(prev => ({ ...prev, [user.id]: e.target.value as UserRole }))}
-                  disabled={updatingId === user.id}
-                  style={{ fontSize: 12, padding: '6px 10px', borderRadius: 8, background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)', cursor: 'pointer' }}
-                >
-                  {roles.map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
-                </select>
-                <button
-                  onClick={() => approve(user)}
-                  disabled={updatingId === user.id}
-                  style={{ padding: '7px 14px', borderRadius: 8, background: 'rgba(62,207,142,0.12)', border: '1px solid rgba(62,207,142,0.3)', color: 'var(--green)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
-                >
-                  Aprovar
-                </button>
-                <button
-                  onClick={() => reject(user)}
-                  disabled={updatingId === user.id}
-                  style={{ padding: '7px 14px', borderRadius: 8, background: 'rgba(255,80,80,0.08)', border: '1px solid rgba(255,80,80,0.2)', color: 'var(--red)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
-                >
-                  Rejeitar
-                </button>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <select
+                    value={teamMap[user.id] ?? user.team ?? ''}
+                    onChange={e => setTeamMap(prev => ({ ...prev, [user.id]: e.target.value as TeamSector }))}
+                    disabled={updatingId === user.id}
+                    style={{ fontSize: 11, padding: '4px 8px', borderRadius: 6, background: 'var(--glass-2)', border: '1px solid var(--border)', color: 'var(--gray-300)', cursor: 'pointer', maxWidth: 140 }}
+                  >
+                    <option value="" disabled>Equipe...</option>
+                    {teams.map(t => <option key={t} value={t}>{TEAM_LABELS[t]}</option>)}
+                  </select>
+
+                  <select
+                    value={roleMap[user.id] ?? 'voluntario'}
+                    onChange={e => setRoleMap(prev => ({ ...prev, [user.id]: e.target.value as UserRole }))}
+                    disabled={updatingId === user.id}
+                    style={{ fontSize: 11, padding: '4px 8px', borderRadius: 6, background: 'var(--glass-2)', border: '1px solid var(--border)', color: 'var(--text-primary)', cursor: 'pointer' }}
+                  >
+                    {roles.map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
+                  </select>
+                </div>
+                
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button
+                    onClick={() => reject(user)}
+                    disabled={updatingId === user.id}
+                    className="btn btn-danger"
+                    style={{ padding: '6px 12px', fontSize: 11, minWidth: 80 }}
+                  >
+                    Rejeitar
+                  </button>
+                  <button
+                    onClick={() => approve(user)}
+                    disabled={updatingId === user.id}
+                    className="btn btn-primary"
+                    style={{ padding: '6px 12px', fontSize: 11, minWidth: 80 }}
+                  >
+                    Aprovar
+                  </button>
+                </div>
               </div>
             </div>
           ))}
@@ -137,3 +174,4 @@ export default function CadastrosPage() {
     </div>
   )
 }
+

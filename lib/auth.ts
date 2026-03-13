@@ -10,13 +10,21 @@ export async function getCurrentProfile(): Promise<Profile | null> {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
-  // Busca por auth_user_id primeiro (usuários novos), fallback para email
+  // Busca por auth_user_id (novo) ou email (fallback legado)
   const { data } = await supabase
     .from('profiles')
     .select('*')
-    .or(`auth_user_id.eq.${user.id},email.eq.${user.email}`)
-    .eq('status', 'ativo')
+    .eq('auth_user_id', user.id)
     .single()
 
-  return data ?? null
+  if (data) return data
+
+  // Fallback: buscar por email para contas legadas
+  const { data: fallback } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('email', user.email)
+    .single()
+
+  return fallback ?? null
 }

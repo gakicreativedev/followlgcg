@@ -1,8 +1,9 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase'
 import { Profile } from '@/types/database'
+import { createClient } from '@/lib/supabase'
 import NewTaskForm from '@/components/NewTaskForm'
+import { Suspense } from 'react'
 
 export default function NovaTarefaPage() {
   const [profile, setProfile] = useState<Profile | null>(null)
@@ -22,13 +23,16 @@ export default function NovaTarefaPage() {
 
   return (
     <div className="fade-in" style={{ maxWidth: 600 }}>
-      <div style={{ marginBottom: 28 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 600 }}>Nova demanda</h1>
-        <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>Crie e atribua uma tarefa para a equipe</p>
-      </div>
-      <div className="card">
-        <NewTaskForm creatorId={profile.id} />
-      </div>
+      {/* Fallback de form para usar params do client */}
+      <Suspense fallback={<p>Carregando...</p>}>
+        <div style={{ marginBottom: 28 }}>
+          <h1 style={{ fontSize: 22, fontWeight: 600 }}>Nova demanda</h1>
+          <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>Crie e atribua uma tarefa para a equipe</p>
+        </div>
+        <div className="card">
+          <NewTaskForm creatorId={profile.id} />
+        </div>
+      </Suspense>
     </div>
   )
 }

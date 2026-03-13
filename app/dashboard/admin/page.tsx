@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { getCurrentProfile } from '@/lib/auth'
-import { Profile, UserRole, ROLE_LABELS } from '@/types/database'
+import { Profile, UserRole, ROLE_LABELS, TeamSector, TEAM_LABELS } from '@/types/database'
 
 function initials(name: string) {
   return name.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)
@@ -61,6 +61,14 @@ export default function AdminPage() {
     setUpdatingId(null)
   }
 
+  async function updateTeam(userId: string, newTeam: TeamSector) {
+    setUpdatingId(userId)
+    const supabase = createClient()
+    await supabase.from('profiles').update({ team: newTeam, updated_at: new Date().toISOString() }).eq('id', userId)
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, team: newTeam } : u))
+    setUpdatingId(null)
+  }
+
   async function deactivateUser(userId: string) {
     if (!confirm('Desativar este usuário?')) return
     setUpdatingId(userId)
@@ -70,9 +78,25 @@ export default function AdminPage() {
     setUpdatingId(null)
   }
 
+  async function removeUser(userId: string) {
+    if (!confirm('ATENÇÃO: Isso vai REMOVER PERMANENTEMENTE este usuário. Deseja continuar?')) return
+    setUpdatingId(userId)
+    const supabase = createClient()
+    // Remover profile completamente
+    const { error } = await supabase.from('profiles').delete().eq('id', userId)
+    if (error) {
+      alert('Erro ao remover usuário: ' + error.message)
+      setUpdatingId(null)
+      return
+    }
+    setUsers(prev => prev.filter(u => u.id !== userId))
+    setUpdatingId(null)
+  }
+
   if (loading || !profile) return null
 
   const roles: UserRole[] = ['admin', 'pastor', 'lider', 'vice_lider', 'voluntario']
+  const teams = Object.keys(TEAM_LABELS) as TeamSector[]
 
   return (
     <div className="fade-in">
@@ -132,31 +156,61 @@ export default function AdminPage() {
               {initials(u.name)}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-primary)' }}>{u.name}</p>
-              <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>@{u.username ?? u.email.split('@')[0]}</p>
+              <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{u.name}</p>
+              <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>@{u.username ?? u.email.split('@')[0]}</p>
+              {u.team && (
+                <span className="badge badge-team" style={{ fontSize: 9 }}>
+                  {TEAM_LABELS[u.team]}
+                </span>
+              )}
             </div>
-            <select
-              value={u.role}
-              onChange={e => updateRole(u.id, e.target.value as UserRole)}
-              disabled={updatingId === u.id || u.id === profile.id}
-              style={{
-                fontSize: 12, padding: '5px 8px', borderRadius: 7,
-                background: 'var(--bg-elevated)',
-                border: '1px solid var(--border)',
-                color: ROLE_COLORS[u.role],
-                cursor: u.id === profile.id ? 'not-allowed' : 'pointer',
-              }}
-            >
-              {roles.map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
-            </select>
-            {u.id !== profile.id && (
-              <button
-                onClick={() => deactivateUser(u.id)}
-                disabled={updatingId === u.id}
-                style={{ padding: '6px 10px', borderRadius: 7, background: 'rgba(255,80,80,0.08)', border: '1px solid rgba(255,80,80,0.2)', color: 'var(--red)', fontSize: 12, cursor: 'pointer' }}
+            
+            <div style={{ display: 'flex', gap: 6 }}>
+              <select
+                value={u.team ?? ''}
+                onChange={e => updateTeam(u.id, e.target.value as TeamSector)}
+                disabled={updatingId === u.id || u.id === profile.id}
+                style={{
+                  fontSize: 11, padding: '4px 8px', borderRadius: 6,
+                  background: 'var(--glass-2)', border: '1px solid var(--border)',
+                  color: 'var(--gray-300)', cursor: u.id === profile.id ? 'not-allowed' : 'pointer',
+                  maxWidth: 130
+                }}
               >
-                Desativar
-              </button>
+                <option value="" disabled>Sem equipe</option>
+                {teams.map(t => <option key={t} value={t}>{TEAM_LABELS[t]}</option>)}
+              </select>
+
+              <select
+                value={u.role}
+                onChange={e => updateRole(u.id, e.target.value as UserRole)}
+                disabled={updatingId === u.id || u.id === profile.id}
+                style={{
+                  fontSize: 11, padding: '4px 8px', borderRadius: 6,
+                  background: 'var(--glass-2)', border: '1px solid var(--border)',
+                  color: ROLE_COLORS[u.role], cursor: u.id === profile.id ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {roles.map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
+              </select>
+            </div>
+            {u.id !== profile.id && (
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button
+                  onClick={() => deactivateUser(u.id)}
+                  disabled={updatingId === u.id}
+                  style={{ padding: '6px 10px', borderRadius: 7, background: 'rgba(245,197,66,0.06)', border: '1px solid rgba(245,197,66,0.15)', color: 'var(--amber)', fontSize: 12, cursor: 'pointer', transition: 'all 0.2s' }}
+                >
+                  Desativar
+                </button>
+                <button
+                  onClick={() => removeUser(u.id)}
+                  disabled={updatingId === u.id}
+                  style={{ padding: '6px 10px', borderRadius: 7, background: 'rgba(239,107,107,0.06)', border: '1px solid rgba(239,107,107,0.15)', color: 'var(--red)', fontSize: 12, cursor: 'pointer', transition: 'all 0.2s' }}
+                >
+                  Remover
+                </button>
+              </div>
             )}
           </div>
         ))}

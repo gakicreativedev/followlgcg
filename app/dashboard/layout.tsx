@@ -20,6 +20,7 @@ const NAV_ADMIN = [
   { label: 'Equipe', href: '/dashboard/equipe', icon: iconTeam },
   { label: 'Calendário', href: '/dashboard/calendario', icon: iconCal },
   { label: 'Administração', href: '/dashboard/admin', icon: iconShield },
+  { label: 'Meu perfil', href: '/dashboard/perfil', icon: iconUser },
 ]
 
 const NAV_PASTOR = [
@@ -28,6 +29,7 @@ const NAV_PASTOR = [
   { label: 'Nova demanda', href: '/dashboard/nova-tarefa', icon: iconPlus },
   { label: 'Equipe', href: '/dashboard/equipe', icon: iconTeam },
   { label: 'Calendário', href: '/dashboard/calendario', icon: iconCal },
+  { label: 'Meu perfil', href: '/dashboard/perfil', icon: iconUser },
 ]
 
 const NAV_LIDER = [
@@ -35,6 +37,7 @@ const NAV_LIDER = [
   { label: 'Tarefas', href: '/dashboard/tarefas', icon: iconCheck },
   { label: 'Nova demanda', href: '/dashboard/nova-tarefa', icon: iconPlus },
   { label: 'Equipe', href: '/dashboard/equipe', icon: iconTeam },
+  { label: 'Meu perfil', href: '/dashboard/perfil', icon: iconUser },
 ]
 
 const NAV_VOLUNTARIO = [
@@ -64,10 +67,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ width: 32, height: 32, border: '2px solid rgba(196,160,80,0.2)', borderTopColor: 'var(--gold)', borderRadius: '50%', animation: 'spin 0.7s linear infinite', margin: '0 auto 12px' }} />
-          <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Carregando...</p>
+          <div style={{ display: 'flex', gap: 6, justifyContent: 'center', marginBottom: 16 }}>
+            <div className="loading-pulse" />
+            <div className="loading-pulse" style={{ animationDelay: '0.2s' }} />
+            <div className="loading-pulse" style={{ animationDelay: '0.4s' }} />
+          </div>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', letterSpacing: '-0.01em' }}>Carregando...</p>
         </div>
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     )
   }
@@ -83,7 +89,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
       <Sidebar profile={profile} navItems={navItems} />
-      <main style={{ flex: 1, padding: '32px 36px', overflow: 'auto', minHeight: '100vh', background: 'transparent' }}>
+      <main style={{ flex: 1, padding: '36px 44px', overflow: 'auto', minHeight: '100vh', background: 'transparent' }}>
         {children}
       </main>
     </div>
