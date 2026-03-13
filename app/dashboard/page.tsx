@@ -69,28 +69,92 @@ export default function DashboardPage() {
 
   const canEdit = ['pastor', 'lider', 'vice_lider'].includes(profile.role) || profile.role === 'voluntario'
 
+  // Exportar CSV
+  function exportCSV() {
+    const header = 'Título,Status,Tipo,Equipe,Atribuído,Prazo,Prioridade\n'
+    const rows = tasks.map(t =>
+      `"${t.title}","${STATUS_LABELS[t.status]}","${CONTENT_TYPE_LABELS[t.content_type]}","${t.team_target ? TEAM_LABELS[t.team_target] : 'N/A'}","${t.assignee?.name || 'N/A'}","${t.due_date || 'N/A'}","${t.priority === 1 ? 'Alta' : t.priority === 2 ? 'Média' : 'Baixa'}"`
+    ).join('\n')
+    const blob = new Blob([header + rows], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = `tarefas_${new Date().toISOString().split('T')[0]}.csv`
+    a.click(); URL.revokeObjectURL(url)
+  }
+
   // Admin / Pastor view
   if (profile.role === 'admin' || profile.role === 'pastor') {
     const teams = Object.keys(TEAM_LABELS) as TeamSector[]
 
+    // Chart data by team
+    const chartData = teams.map(t => ({
+      name: TEAM_LABELS[t].split(' ')[0],
+      done: tasks.filter(task => task.team_target === t && task.status === 'concluido').length,
+      pending: tasks.filter(task => task.team_target === t && task.status !== 'concluido').length,
+      total: tasks.filter(task => task.team_target === t).length,
+    }))
+    const maxTasks = Math.max(...chartData.map(d => d.total), 1)
+
     return (
       <div className="fade-in">
-        <div style={{ marginBottom: 36 }}>
-          <h1 style={{ fontSize: 28, fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.03em' }}>Bom dia, {profile.name.split(' ')[0]}</h1>
-          <p style={{ fontSize: 15, color: 'var(--text-secondary)', marginTop: 6, fontWeight: 400, letterSpacing: '-0.01em' }}>Visão geral da sua Igreja</p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 36 }}>
+          <div>
+            <h1 style={{ fontSize: 28, fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.03em' }}>Bom dia, {profile.name.split(' ')[0]}</h1>
+            <p style={{ fontSize: 15, color: 'var(--text-secondary)', marginTop: 6, fontWeight: 400, letterSpacing: '-0.01em' }}>Visão geral da sua Igreja</p>
+          </div>
+          <button className="btn" onClick={exportCSV} style={{ gap: 6 }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            Exportar CSV
+          </button>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 36 }}>
+        <div className="stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 36 }}>
           <MetricCard label="Total" value={counts.total} />
           <MetricCard label="Em andamento" value={counts.andamento} color="var(--blue)" />
           <MetricCard label="Em revisão" value={counts.revisao} color="var(--pink)" />
           <MetricCard label="Concluídas" value={counts.concluido} color="var(--green)" />
         </div>
 
+        {/* Produtividade por Equipe — Chart */}
+        <div className="card" style={{ padding: '28px 32px', marginBottom: 32 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+            <div>
+              <p className="section-title" style={{ margin: 0 }}>Produtividade por Equipe</p>
+            </div>
+            <div style={{ display: 'flex', gap: 16, fontSize: 11, color: 'var(--text-muted)' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ width: 8, height: 8, borderRadius: 2, background: 'var(--green)' }} /> Concluídas
+              </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ width: 8, height: 8, borderRadius: 2, background: 'rgba(255,255,255,0.12)' }} /> Pendentes
+              </span>
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, height: 160, paddingTop: 8 }}>
+            {chartData.map((d, i) => (
+              <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, height: '100%', justifyContent: 'flex-end' }}>
+                <div style={{ display: 'flex', gap: 3, alignItems: 'flex-end', height: '100%' }}>
+                  <div className="chart-bar" style={{
+                    width: 20,
+                    height: `${Math.max((d.done / maxTasks) * 100, 4)}%`,
+                    background: 'linear-gradient(180deg, rgba(50,213,131,0.4) 0%, rgba(50,213,131,0.1) 100%)',
+                    borderColor: 'rgba(50,213,131,0.3)',
+                  }} title={`${d.done} concluídas`} />
+                  <div className="chart-bar" style={{
+                    width: 20,
+                    height: `${Math.max((d.pending / maxTasks) * 100, 4)}%`,
+                  }} title={`${d.pending} pendentes`} />
+                </div>
+                <span style={{ fontSize: 10, color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.2 }}>{d.name}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
           <div>
             <p className="section-title">Nossas Equipes</p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div className="stagger" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               {teams.map(t => {
                 const teamUsers = teamProfiles.filter(p => p.team === t).length
                 const teamTasksTotal = tasks.filter(task => task.team_target === t).length

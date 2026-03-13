@@ -36,16 +36,8 @@ export default function Sidebar({ profile, navItems }: SidebarProps) {
     }}>
       {/* Logo */}
       <div style={{ padding: '0 12px', marginBottom: 36 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div className="logo-icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-              <path d="M12 3v18M3 12h18" stroke="rgba(255,255,255,0.7)" strokeWidth="1.5" strokeLinecap="round"/>
-            </svg>
-          </div>
-          <div>
-            <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>Lagoinha</p>
-            <p style={{ fontSize: 11, color: 'var(--text-muted)', letterSpacing: '0.03em' }}>Equipe de Mídia</p>
-          </div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <img src="/Logo.png" alt="Logo" style={{ height: 48, width: 'auto', objectFit: 'contain', filter: 'brightness(0.95)' }} />
         </div>
         <div style={{ height: 1, margin: '20px 0 0', background: 'linear-gradient(90deg, transparent, var(--border-strong), transparent)' }} />
       </div>

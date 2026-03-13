@@ -130,26 +130,12 @@ export default function LoginPage() {
 
         {/* Header */}
         <div style={{ textAlign: 'center', marginBottom: 40 }}>
-          <div style={{
-            width: 56, height: 56,
-            background: 'linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03))',
-            border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: 16,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            margin: '0 auto 24px',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
-          }}>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-              <path d="M12 3v18M3 12h18" stroke="rgba(255,255,255,0.6)" strokeWidth="1.5" strokeLinecap="round"/>
-            </svg>
-          </div>
-          <h1 style={{ fontSize: 30, fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.03em', lineHeight: 1.15, marginBottom: 8 }}>
-            Igreja Batista<br/>da Lagoinha
-          </h1>
-          <p style={{ fontSize: 13, color: 'var(--text-muted)', letterSpacing: '0.02em' }}>
-            Gestão da Equipe de Mídia
-          </p>
-          <div style={{ height: 1, margin: '24px auto 0', width: 48, background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent)' }} />
+          <img src="/Logo.png" alt="Logo" style={{
+            height: 72, width: 'auto', objectFit: 'contain',
+            margin: '0 auto 24px', display: 'block',
+            filter: 'brightness(0.95)',
+          }} />
+          <div style={{ height: 1, margin: '0 auto', width: 48, background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent)' }} />
         </div>
 
         {/* Tab Switcher */}

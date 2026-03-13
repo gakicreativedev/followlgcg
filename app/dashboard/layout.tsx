@@ -5,6 +5,8 @@ import { getCurrentProfile } from '@/lib/auth'
 import { Profile } from '@/types/database'
 import Sidebar from '@/components/Sidebar'
 
+import SearchBar from '@/components/SearchBar'
+
 const iconGrid = <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.5"/></svg>
 const iconCheck = <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M9 11l3 3L22 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
 const iconPlus = <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.5"/><path d="M12 8v8M8 12h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
@@ -89,8 +91,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
       <Sidebar profile={profile} navItems={navItems} />
-      <main style={{ flex: 1, padding: '36px 44px', overflow: 'auto', minHeight: '100vh', background: 'transparent' }}>
-        {children}
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto', minHeight: '100vh', background: 'transparent' }}>
+        {/* Search Header */}
+        <div style={{ padding: '20px 44px 0', display: 'flex', justifyContent: 'flex-end' }}>
+          <SearchBar />
+        </div>
+        <div style={{ flex: 1, padding: '20px 44px 36px' }}>
+          {children}
+        </div>
       </main>
     </div>
   )

@@ -102,6 +102,16 @@ export interface TaskHistory {
   created_at: string
 }
 
+export interface TaskComment {
+  id: string
+  task_id: string
+  user_id: string
+  user_name: string
+  user_avatar?: string
+  content: string
+  created_at: string
+}
+
 export const CONTENT_TYPE_LABELS: Record<ContentType, string> = {
   post_story: 'Post / Story',
   carrossel: 'Carrossel',

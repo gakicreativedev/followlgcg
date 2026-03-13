@@ -1,5 +1,5 @@
 'use client'
-import { Task, Checklist, ChecklistItem, Profile, TEAM_LABELS } from '@/types/database'
+import { Task, Checklist, ChecklistItem, Profile, TEAM_LABELS, TaskComment, TaskHistory, STATUS_LABELS } from '@/types/database'
 import { createClient } from '@/lib/supabase'
 import { useState, useEffect } from 'react'
 import { getCurrentProfile } from '@/lib/auth'
@@ -25,6 +25,11 @@ export default function TaskModal({ task, isOpen, onClose, onUpdate }: TaskModal
   const [assignedTo, setAssignedTo] = useState(task.assigned_to || '')
   const [canAssign, setCanAssign] = useState(false)
 
+  const [comments, setComments] = useState<TaskComment[]>([])
+  const [newComment, setNewComment] = useState('')
+  const [currentProfile, setCurrentProfile] = useState<Profile | null>(null)
+  const [history, setHistory] = useState<(TaskHistory & { changerName?: string })[]>([])
+
   // Extrair ID do GDrive se for link longo
   const getGdriveId = (link: string) => {
     if (!link) return null
@@ -38,24 +43,72 @@ export default function TaskModal({ task, isOpen, onClose, onUpdate }: TaskModal
     if (isOpen) {
       loadChecklists()
       loadTeamMembers()
+      loadComments()
+      loadHistory()
     }
   }, [isOpen, task.id])
 
   async function loadTeamMembers() {
     const supabase = createClient()
-    const currentProfile = await getCurrentProfile()
-    if (!currentProfile) return
-    // Admin, pastor, lider e vice_lider podem atribuir
-    if (['admin', 'pastor', 'lider', 'vice_lider'].includes(currentProfile.role)) {
+    const prof = await getCurrentProfile()
+    if (!prof) return
+    setCurrentProfile(prof)
+    if (['admin', 'pastor', 'lider', 'vice_lider'].includes(prof.role)) {
       setCanAssign(true)
     }
     let query = supabase.from('profiles').select('*').eq('status', 'ativo').order('name')
-    // Se a tarefa tiver equipe, filtrar apenas membros dessa equipe
     if (task.team_target) {
       query = query.eq('team', task.team_target)
     }
     const { data } = await query
     if (data) setTeamMembers(data)
+  }
+
+  async function loadComments() {
+    const supabase = createClient()
+    const { data } = await supabase.from('task_comments').select('*').eq('task_id', task.id).order('created_at', { ascending: true })
+    if (data) setComments(data)
+  }
+
+  async function loadHistory() {
+    const supabase = createClient()
+    const { data } = await supabase.from('task_history').select('*').eq('task_id', task.id).order('created_at', { ascending: false }).limit(10)
+    if (data && data.length > 0) {
+      const { data: profiles } = await supabase.from('profiles').select('id,name,auth_user_id')
+      const mapped = data.map(h => ({
+        ...h,
+        changerName: profiles?.find(p => p.auth_user_id === h.changed_by)?.name || 'Sistema',
+      }))
+      setHistory(mapped)
+    }
+  }
+
+  async function handlePostComment(e: React.FormEvent) {
+    e.preventDefault()
+    if (!newComment.trim() || !currentProfile) return
+    const supabase = createClient()
+    const { data } = await supabase.from('task_comments').insert({
+      task_id: task.id,
+      user_id: currentProfile.id,
+      user_name: currentProfile.name,
+      user_avatar: currentProfile.avatar_url || null,
+      content: newComment.trim(),
+    }).select().single()
+    if (data) {
+      setComments([...comments, data])
+      setNewComment('')
+    }
+  }
+
+  function timeAgo(dateStr: string) {
+    const diff = Date.now() - new Date(dateStr).getTime()
+    const mins = Math.floor(diff / 60000)
+    if (mins < 1) return 'agora'
+    if (mins < 60) return `${mins}min`
+    const hrs = Math.floor(mins / 60)
+    if (hrs < 24) return `${hrs}h`
+    const days = Math.floor(hrs / 24)
+    return `${days}d`
   }
 
   async function handleAssign(userId: string) {
@@ -317,6 +370,47 @@ export default function TaskModal({ task, isOpen, onClose, onUpdate }: TaskModal
                )}
             </div>
 
+            {/* Comentários */}
+            <div>
+              <h3 style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 16 }}>Comentários</h3>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 16 }}>
+                {comments.length === 0 && (
+                  <p style={{ fontSize: 13, color: 'var(--text-muted)', fontStyle: 'italic' }}>Nenhum comentário ainda.</p>
+                )}
+                {comments.map(c => (
+                  <div key={c.id} style={{ display: 'flex', gap: 12, padding: '12px 14px', background: 'var(--glass-1)', borderRadius: 12, border: '1px solid var(--border)' }}>
+                    {c.user_avatar ? (
+                      <img src={c.user_avatar} alt="" style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                    ) : (
+                      <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--glass-3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', flexShrink: 0 }}>
+                        {c.user_name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
+                      </div>
+                    )}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{c.user_name}</span>
+                        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{timeAgo(c.created_at)}</span>
+                      </div>
+                      <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5 }}>{c.content}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <form onSubmit={handlePostComment} style={{ display: 'flex', gap: 8 }}>
+                <input
+                  type="text"
+                  className="input-field"
+                  placeholder="Escreva um comentário..."
+                  value={newComment}
+                  onChange={e => setNewComment(e.target.value)}
+                  style={{ flex: 1, fontSize: 13 }}
+                />
+                <button type="submit" className="btn btn-primary" style={{ padding: '10px 20px', fontSize: 13 }} disabled={!newComment.trim()}>Enviar</button>
+              </form>
+            </div>
+
           </div>
 
           {/* Sidebar (Right) */}
@@ -381,6 +475,35 @@ export default function TaskModal({ task, isOpen, onClose, onUpdate }: TaskModal
               <p style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 4 }}>Data Opcional</p>
               <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{task.due_date ? new Date(task.due_date + 'T00:00:00').toLocaleDateString('pt-BR') : 'Sem data'}</p>
             </div>
+
+            {/* Histórico de Atividades */}
+            {history.length > 0 && (
+              <div>
+                <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 12 }}>Histórico</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                  {history.map((h, i) => (
+                    <div key={h.id} style={{ display: 'flex', gap: 12, paddingBottom: 16, position: 'relative' }}>
+                      {/* Timeline line */}
+                      {i < history.length - 1 && (
+                        <div style={{ position: 'absolute', left: 7, top: 16, bottom: 0, width: 1, background: 'var(--border)' }} />
+                      )}
+                      {/* Dot */}
+                      <div style={{ width: 15, height: 15, borderRadius: '50%', background: 'var(--glass-3)', border: '2px solid var(--border-strong)', flexShrink: 0, marginTop: 2 }} />
+                      <div>
+                        <p style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                          {h.old_status && h.new_status ? (
+                            <><span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{h.changerName || 'Alguém'}</span> moveu de <span className={`badge badge-${h.old_status}`} style={{ fontSize: 9, padding: '1px 6px' }}>{STATUS_LABELS[h.old_status]}</span> → <span className={`badge badge-${h.new_status}`} style={{ fontSize: 9, padding: '1px 6px' }}>{STATUS_LABELS[h.new_status]}</span></>
+                          ) : (
+                            <span>Atividade registrada</span>
+                          )}
+                        </p>
+                        <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{timeAgo(h.created_at)}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
           </div>
         </div>

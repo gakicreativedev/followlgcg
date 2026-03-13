@@ -50,24 +50,30 @@ export default function TaskCard({ task, canEdit = false, onUpdate }: TaskCardPr
     onUpdate?.()
   }
 
+  const isOverdue = task.due_date && task.status !== 'concluido' && new Date(task.due_date + 'T23:59:59') < new Date()
+  const daysOverdue = isOverdue ? Math.ceil((Date.now() - new Date(task.due_date + 'T23:59:59').getTime()) / 86400000) : 0
+
   return (
     <>
       <div style={{
         background: 'var(--glass-2)',
-        border: '1px solid var(--border)',
+        border: isOverdue ? '1px solid rgba(239,107,107,0.4)' : '1px solid var(--border)',
         borderRadius: 16,
         padding: '18px 20px',
         transition: 'all 0.35s cubic-bezier(0.32, 0.72, 0, 1)',
-        boxShadow: '0 2px 16px rgba(0,0,0,0.15)',
+        boxShadow: isOverdue ? '0 2px 16px rgba(239,107,107,0.12)' : '0 2px 16px rgba(0,0,0,0.15)',
         cursor: 'pointer'
       }}
       onClick={() => setIsModalOpen(true)}
-      onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 24px rgba(0,0,0,0.25)'; }}
-      onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 16px rgba(0,0,0,0.15)'; }}
+      onMouseEnter={e => { e.currentTarget.style.borderColor = isOverdue ? 'rgba(239,107,107,0.6)' : 'var(--border-strong)'; e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = isOverdue ? '0 6px 24px rgba(239,107,107,0.2)' : '0 6px 24px rgba(0,0,0,0.25)'; }}
+      onMouseLeave={e => { e.currentTarget.style.borderColor = isOverdue ? 'rgba(239,107,107,0.4)' : 'var(--border)'; e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = isOverdue ? '0 2px 16px rgba(239,107,107,0.12)' : '0 2px 16px rgba(0,0,0,0.15)'; }}
       >
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+              {isOverdue && (
+                <span style={{ fontSize: 10, color: 'var(--red)', fontWeight: 600, background: 'rgba(239,107,107,0.1)', padding: '2px 8px', borderRadius: 99 }}>● Atrasada {daysOverdue}d</span>
+              )}
               {task.team_target && (
               <span className="badge badge-team" style={{ fontSize: 9, opacity: 0.9 }}>{TEAM_LABELS[task.team_target]}</span>
             )}

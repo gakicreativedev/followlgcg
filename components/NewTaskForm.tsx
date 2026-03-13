@@ -98,8 +98,48 @@ export default function NewTaskForm({ creatorId, onSuccess }: NewTaskFormProps) 
     }
   }
 
+  const TEMPLATES = [
+    { label: '📱 Post Semanal', title: 'Post Semanal — [Data]', description: 'Arte para post da semana. Referência: tema do culto.', type: 'post_story' as ContentType, priority: '2' },
+    { label: '🎬 Reels Domingo', title: 'Reels do Culto — [Data]', description: 'Reels curto com cortes do louvor e pregação.', type: 'reels' as ContentType, priority: '1' },
+    { label: '📑 Carrossel', title: 'Carrossel — [Tema]', description: 'Carrossel informativo/devocional. 5-8 slides.', type: 'carrossel' as ContentType, priority: '2' },
+    { label: '🎨 Arte Gráfica', title: 'Arte — [Evento]', description: 'Arte para divulgação de evento/programação.', type: 'arte_grafica' as ContentType, priority: '2' },
+    { label: '🎥 Vídeo Completo', title: 'Vídeo — [Evento]', description: 'Vídeo completo com edição profissional. Incluir intro/outro.', type: 'video_elaborado' as ContentType, priority: '1' },
+  ]
+
+  function applyTemplate(tpl: typeof TEMPLATES[0]) {
+    setTitle(tpl.title)
+    setDescription(tpl.description)
+    setContentType(tpl.type)
+    setPriority(tpl.priority)
+  }
+
   return (
     <form onSubmit={handleSubmit}>
+
+      {/* Templates */}
+      <div style={{ marginBottom: 20 }}>
+        <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.03em' }}>Templates rápidos</p>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {TEMPLATES.map((tpl, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => applyTemplate(tpl)}
+              style={{
+                padding: '7px 14px', fontSize: 12, borderRadius: 10,
+                background: 'var(--glass-2)', border: '1px solid var(--border)',
+                color: 'var(--text-secondary)', cursor: 'pointer',
+                transition: 'all 0.2s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.color = 'var(--text-primary)' }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-secondary)' }}
+            >
+              {tpl.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="form-group">
         <label>Título da tarefa *</label>
         <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Ex: Arte para o culto de domingo" required />
