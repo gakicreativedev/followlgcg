@@ -31,31 +31,31 @@ export default function Sidebar({ profile, navItems }: SidebarProps) {
   }
 
   return (
-    <div style={{
-      width: 220,
+    <div className="sidebar-glass" style={{
+      width: 224,
       minHeight: '100vh',
-      background: 'var(--bg-card)',
-      borderRight: '1px solid var(--border)',
       display: 'flex',
       flexDirection: 'column',
-      padding: '20px 12px',
+      padding: '24px 14px',
       flexShrink: 0,
+      position: 'sticky',
+      top: 0,
+      height: '100vh',
     }}>
       {/* Logo */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 10px', marginBottom: 24 }}>
-        <div style={{
-          width: 30, height: 30, borderRadius: 8,
-          background: 'var(--accent-light)', border: '1px solid var(--accent-border)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          flexShrink: 0,
-        }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-            <path d="M12 2L2 7l10 5 10-5-10-5z" stroke="#7c6af7" strokeWidth="1.8" strokeLinejoin="round"/>
-            <path d="M2 17l10 5 10-5" stroke="#7c6af7" strokeWidth="1.8" strokeLinejoin="round"/>
-            <path d="M2 12l10 5 10-5" stroke="#7c6af7" strokeWidth="1.8" strokeLinejoin="round"/>
-          </svg>
+      <div style={{ padding: '4px 10px', marginBottom: 28 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+          <div className="logo-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <path d="M12 3v18M3 12h18" stroke="#C4A050" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
+          </div>
+          <div>
+            <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', letterSpacing: '0.02em' }}>Lagoinha</p>
+            <p style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Equipe de Mídia</p>
+          </div>
         </div>
-        <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>Mídia Igreja</span>
+        <div className="divider-gold" style={{ margin: '16px 0 0' }} />
       </div>
 
       {/* Nav */}

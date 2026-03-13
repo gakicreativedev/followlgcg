@@ -57,7 +57,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ width: 32, height: 32, border: '2px solid var(--accent)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite', margin: '0 auto 12px' }} />
+          <div style={{ width: 32, height: 32, border: '2px solid rgba(196,160,80,0.2)', borderTopColor: 'var(--gold)', borderRadius: '50%', animation: 'spin 0.7s linear infinite', margin: '0 auto 12px' }} />
           <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Carregando...</p>
         </div>
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
@@ -74,7 +74,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
       <Sidebar profile={profile} navItems={navItems} />
-      <main style={{ flex: 1, padding: '28px 32px', overflow: 'auto', minHeight: '100vh' }}>
+      <main style={{
+        flex: 1,
+        padding: '32px 36px',
+        overflow: 'auto',
+        minHeight: '100vh',
+        background: 'transparent',
+      }}>
         {children}
       </main>
     </div>

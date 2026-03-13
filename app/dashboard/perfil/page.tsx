@@ -74,9 +74,9 @@ export default function PerfilPage() {
       onClick={onClick}
       style={{
         padding: '6px 14px', borderRadius: 99, fontSize: 12, cursor: 'pointer',
-        border: `1px solid ${active ? 'var(--accent)' : 'var(--border-strong)'}`,
+        border: `1px solid ${active ? 'var(--gold)' : 'var(--border-strong)'}`,
         background: active ? 'var(--accent-light)' : 'var(--bg-elevated)',
-        color: active ? 'var(--accent)' : 'var(--text-secondary)',
+        color: active ? 'var(--gold)' : 'var(--text-secondary)',
         transition: 'all 0.15s',
         fontFamily: 'var(--font-main)',
       }}
