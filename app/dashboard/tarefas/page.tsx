@@ -43,10 +43,15 @@ export default function TarefasPage() {
       const { data: team } = await supabase.from('profiles').select('*')
       if (team) setAllProfiles(team)
 
-      let query = supabase.from('tasks').select('*').order('created_at', { ascending: false })
+      let query = supabase.from('tasks').select('*').is('parent_task_id', null).order('created_at', { ascending: false })
 
       if (prof.role !== 'admin' && prof.role !== 'pastor') {
         query = query.or(`created_by.eq.${prof.id},assigned_to.eq.${prof.id},team_target.eq.${prof.team}`)
+      }
+
+      // Default team filter for non-admin users
+      if (prof.role !== 'admin' && prof.role !== 'pastor' && prof.team) {
+        setFilterTeam(prof.team)
       }
 
       const { data: taskData } = await query
@@ -92,24 +97,8 @@ export default function TarefasPage() {
       recurring_until: recurringUntil || null,
     }
 
-    // Insert the main task
-    const { data: mainTask, error } = await supabase.from('tasks').insert(baseTask).select().single()
-
-    if (!error && mainTask && recurringType && dueDate) {
-      // Generate recurring instances
-      const instances = generateRecurringDates(dueDate, recurringType, recurringDays, recurringUntil)
-      if (instances.length > 0) {
-        const childTasks = instances.map(date => ({
-          ...baseTask,
-          due_date: date,
-          parent_task_id: mainTask.id,
-          recurring_type: null, // children are not recurring themselves
-          recurring_days: null,
-          recurring_until: null,
-        }))
-        await supabase.from('tasks').insert(childTasks)
-      }
-    }
+    // Insert the main task (recurrence metadata is stored on the task itself, no child tasks)
+    const { error } = await supabase.from('tasks').insert(baseTask)
 
     setSaving(false)
     if (!error) {
@@ -121,41 +110,10 @@ export default function TarefasPage() {
     }
   }
 
-  function generateRecurringDates(startDate: string, type: string, days: string[], until: string): string[] {
-    const dates: string[] = []
-    const start = new Date(startDate + 'T00:00:00')
-    const end = until ? new Date(until + 'T00:00:00') : new Date(start.getTime() + 90 * 24 * 60 * 60 * 1000) // default 90 days
-    const maxInstances = 52 // safety limit
-
-    const dayMap: Record<string, number> = { dom: 0, seg: 1, ter: 2, qua: 3, qui: 4, sex: 5, sab: 6 }
-
-    if (type === 'weekly' && days.length > 0) {
-      const targetDays = days.map(d => dayMap[d]).filter(d => d !== undefined)
-      const cursor = new Date(start.getTime() + 24 * 60 * 60 * 1000) // start from day after
-      while (cursor <= end && dates.length < maxInstances) {
-        if (targetDays.includes(cursor.getDay())) {
-          dates.push(cursor.toISOString().split('T')[0])
-        }
-        cursor.setDate(cursor.getDate() + 1)
-      }
-    } else if (type === 'daily') {
-      const cursor = new Date(start.getTime() + 24 * 60 * 60 * 1000)
-      while (cursor <= end && dates.length < maxInstances) {
-        dates.push(cursor.toISOString().split('T')[0])
-        cursor.setDate(cursor.getDate() + 1)
-      }
-    } else if (type === 'monthly') {
-      const dayOfMonth = start.getDate()
-      const cursor = new Date(start)
-      cursor.setMonth(cursor.getMonth() + 1)
-      while (cursor <= end && dates.length < maxInstances) {
-        cursor.setDate(dayOfMonth)
-        dates.push(cursor.toISOString().split('T')[0])
-        cursor.setMonth(cursor.getMonth() + 1)
-      }
-    }
-
-    return dates
+  const RECURRING_LABELS: Record<string, string> = {
+    daily: 'Diária',
+    weekly: 'Semanal',
+    monthly: 'Mensal',
   }
 
   const TEMPLATES = [
@@ -184,115 +142,154 @@ export default function TarefasPage() {
 
       {/* Inline Task Creation Form */}
       {showForm && canCreate && (
-        <div className="card" style={{ padding: '24px 28px', marginBottom: 24 }}>
-          <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 16, color: 'var(--text-primary)' }}>Nova demanda</h3>
-
-          {/* Templates */}
-          <div style={{ marginBottom: 16 }}>
-            <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.03em' }}>Templates rápidos</p>
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        <div className="card" style={{ padding: 0, marginBottom: 24, overflow: 'hidden' }}>
+          {/* Form header */}
+          <div style={{ padding: '20px 28px 16px', borderBottom: '1px solid var(--border)', background: 'var(--glass-1)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <h3 style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>Nova demanda</h3>
+              <button onClick={() => setShowForm(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 18, padding: 4, lineHeight: 1 }}>x</button>
+            </div>
+            {/* Templates */}
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 12 }}>
               {TEMPLATES.map((tpl, i) => (
                 <button key={i} type="button" onClick={() => { setTitle(tpl.title); setDescription(tpl.description); setContentType(tpl.type); setPriority(tpl.priority) }}
-                  style={{ padding: '5px 12px', fontSize: 11, borderRadius: 8, background: 'var(--glass-2)', border: '1px solid var(--border)', color: 'var(--text-secondary)', cursor: 'pointer' }}
+                  style={{
+                    padding: '5px 12px', fontSize: 11, borderRadius: 99,
+                    background: 'var(--glass-2)', border: '1px solid var(--border)',
+                    color: 'var(--text-secondary)', cursor: 'pointer', transition: 'all 0.2s',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.color = 'var(--text-primary)' }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-secondary)' }}
                 >{tpl.label}</button>
               ))}
             </div>
           </div>
 
-          <form onSubmit={handleCreateTask}>
-            <div className="form-group" style={{ marginBottom: 12 }}>
-              <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Título da tarefa *" required style={{ fontSize: 14, fontWeight: 500 }} />
-            </div>
-            <div className="form-group" style={{ marginBottom: 12 }}>
-              <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Descrição / Briefing..." rows={2} style={{ resize: 'vertical' }} />
-            </div>
+          <form onSubmit={handleCreateTask} style={{ padding: '20px 28px 24px' }}>
+            {/* Title - prominent input */}
+            <input
+              value={title} onChange={e => setTitle(e.target.value)}
+              placeholder="Titulo da tarefa..."
+              required
+              style={{
+                width: '100%', fontSize: 16, fontWeight: 500, padding: '12px 0',
+                background: 'transparent', border: 'none', borderBottom: '1px solid var(--border)',
+                color: 'var(--text-primary)', outline: 'none', marginBottom: 16,
+              }}
+            />
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 12 }}>
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 3, display: 'block' }}>Tipo</label>
-                <select value={contentType} onChange={e => setContentType(e.target.value as ContentType)} style={{ fontSize: 12 }}>
+            {/* Description */}
+            <textarea
+              value={description} onChange={e => setDescription(e.target.value)}
+              placeholder="Descricao, briefing, referencias..."
+              rows={2}
+              style={{
+                width: '100%', fontSize: 13, padding: '10px 0', resize: 'vertical',
+                background: 'transparent', border: 'none', borderBottom: '1px solid var(--border)',
+                color: 'var(--text-secondary)', outline: 'none', marginBottom: 20, lineHeight: 1.6,
+              }}
+            />
+
+            {/* Row 1: Tipo, Prioridade, Equipe */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 16 }}>
+              <div>
+                <label style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6, display: 'block', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Tipo</label>
+                <select value={contentType} onChange={e => setContentType(e.target.value as ContentType)}>
                   {Object.entries(CONTENT_TYPE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                 </select>
               </div>
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 3, display: 'block' }}>Prioridade</label>
-                <select value={priority} onChange={e => setPriority(e.target.value)} style={{ fontSize: 12 }}>
+              <div>
+                <label style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6, display: 'block', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Prioridade</label>
+                <select value={priority} onChange={e => setPriority(e.target.value)}>
                   <option value="1">Alta</option>
-                  <option value="2">Média</option>
+                  <option value="2">Media</option>
                   <option value="3">Baixa</option>
                 </select>
               </div>
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 3, display: 'block' }}>Equipe destino</label>
-                <select value={teamTarget} onChange={e => { setTeamTarget(e.target.value as TeamSector); setAssignedTo('') }} style={{ fontSize: 12 }}>
+              <div>
+                <label style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6, display: 'block', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Equipe</label>
+                <select value={teamTarget} onChange={e => { setTeamTarget(e.target.value as TeamSector); setAssignedTo('') }}>
                   <option value="">Todas</option>
                   {Object.entries(TEAM_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                 </select>
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 3, display: 'block' }}>Atribuir a</label>
-                <select value={assignedTo} onChange={e => setAssignedTo(e.target.value)} style={{ fontSize: 12 }}>
-                  <option value="">Sem atribuição</option>
+            {/* Row 2: Atribuir, Prazo */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
+              <div>
+                <label style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6, display: 'block', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Atribuir a</label>
+                <select value={assignedTo} onChange={e => setAssignedTo(e.target.value)}>
+                  <option value="">Sem atribuicao</option>
                   {allProfiles
                     .filter(v => v.status === 'ativo' && (!teamTarget || v.team === teamTarget))
                     .map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
                 </select>
               </div>
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 3, display: 'block' }}>Prazo</label>
-                <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} style={{ fontSize: 12 }} />
+              <div>
+                <label style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6, display: 'block', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Prazo</label>
+                <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} />
               </div>
             </div>
 
-            {/* Recurrence section */}
-            <div style={{ background: 'var(--glass-1)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 16px', marginBottom: 16 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: recurringType ? 10 : 0 }}>
-                <label style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>Repetir:</label>
-                <select value={recurringType} onChange={e => { setRecurringType(e.target.value); setRecurringDays([]) }} style={{ fontSize: 12, width: 'auto' }}>
-                  <option value="">Não repetir</option>
-                  <option value="daily">Diariamente</option>
-                  <option value="weekly">Semanalmente</option>
-                  <option value="monthly">Mensalmente</option>
+            {/* Recurrence - collapsible */}
+            <div style={{
+              border: '1px solid var(--border)', borderRadius: 12, marginBottom: 20,
+              overflow: 'hidden', transition: 'all 0.2s',
+            }}>
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px',
+                background: recurringType ? 'var(--glass-2)' : 'transparent',
+              }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, opacity: 0.5 }}>
+                  <path d="M17 1l4 4-4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M3 11V9a4 4 0 014-4h14M7 23l-4-4 4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M21 13v2a4 4 0 01-4 4H3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                <select value={recurringType} onChange={e => { setRecurringType(e.target.value); setRecurringDays([]) }}
+                  style={{ fontSize: 13, border: 'none', background: 'transparent', color: 'var(--text-primary)', cursor: 'pointer', flex: 1 }}>
+                  <option value="">Nao repetir</option>
+                  <option value="daily">Repetir diariamente</option>
+                  <option value="weekly">Repetir semanalmente</option>
+                  <option value="monthly">Repetir mensalmente</option>
                 </select>
                 {recurringType && (
-                  <>
-                    <label style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap', marginLeft: 8 }}>Até:</label>
-                    <input type="date" value={recurringUntil} onChange={e => setRecurringUntil(e.target.value)} style={{ fontSize: 12, width: 'auto' }} />
-                  </>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>ate</span>
+                    <input type="date" value={recurringUntil} onChange={e => setRecurringUntil(e.target.value)}
+                      style={{ fontSize: 12, border: 'none', background: 'transparent', color: 'var(--text-primary)' }} />
+                  </div>
                 )}
               </div>
 
               {recurringType === 'weekly' && (
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                <div style={{ padding: '10px 16px', borderTop: '1px solid var(--border)', display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                   {Object.entries(DAYS_LABELS).map(([v, l]) => (
-                    <label key={v} style={{
-                      display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, cursor: 'pointer',
-                      color: recurringDays.includes(v) ? 'var(--text-primary)' : 'var(--text-muted)',
-                      fontWeight: recurringDays.includes(v) ? 500 : 400,
-                    }}>
-                      <input type="checkbox" checked={recurringDays.includes(v)}
-                        onChange={e => setRecurringDays(prev => e.target.checked ? [...prev, v] : prev.filter(d => d !== v))}
-                        style={{ width: 14, height: 14, accentColor: '#fff' }}
-                      />
-                      {l}
-                    </label>
+                    <button key={v} type="button"
+                      onClick={() => setRecurringDays(prev => prev.includes(v) ? prev.filter(d => d !== v) : [...prev, v])}
+                      style={{
+                        padding: '4px 10px', fontSize: 11, borderRadius: 99, cursor: 'pointer',
+                        fontWeight: recurringDays.includes(v) ? 600 : 400,
+                        background: recurringDays.includes(v) ? 'var(--glass-3)' : 'transparent',
+                        border: recurringDays.includes(v) ? '1px solid var(--border-strong)' : '1px solid var(--border)',
+                        color: recurringDays.includes(v) ? 'var(--text-primary)' : 'var(--text-muted)',
+                        transition: 'all 0.15s',
+                      }}
+                    >{l.slice(0, 3)}</button>
                   ))}
                 </div>
               )}
-
-              {recurringType && !dueDate && (
-                <p style={{ fontSize: 11, color: 'var(--gold)', marginTop: 6 }}>Defina o prazo acima para gerar as datas recorrentes.</p>
-              )}
             </div>
 
+            {/* Submit */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <button className="btn btn-primary" type="submit" disabled={saving} style={{ padding: '10px 24px', fontSize: 13 }}>
+              <button className="btn btn-primary" type="submit" disabled={saving} style={{ padding: '11px 28px', fontSize: 14 }}>
                 {saving ? 'Criando...' : 'Criar tarefa'}
               </button>
-              {formSuccess && <span style={{ fontSize: 13, color: '#34c759' }}>Tarefa criada!</span>}
+              <button type="button" onClick={() => setShowForm(false)} className="btn" style={{ padding: '11px 20px', fontSize: 13 }}>
+                Cancelar
+              </button>
+              {formSuccess && <span style={{ fontSize: 13, color: '#34c759', fontWeight: 500 }}>Tarefa criada com sucesso!</span>}
             </div>
           </form>
         </div>

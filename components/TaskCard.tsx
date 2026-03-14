@@ -82,6 +82,12 @@ export default function TaskCard({ task, canEdit = false, onUpdate, onDelete }: 
             {task.priority === 1 && (
               <span style={{ fontSize: 10, color: 'var(--accent-light)', fontWeight: 600, background: 'var(--glass-3)', padding: '2px 8px', borderRadius: 99 }}>● Alta</span>
             )}
+            {task.recurring_type && (
+              <span style={{ fontSize: 10, color: 'var(--blue)', fontWeight: 500, background: 'var(--blue-bg)', padding: '2px 8px', borderRadius: 99, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M17 1l4 4-4 4" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/><path d="M3 11V9a4 4 0 014-4h14M7 23l-4-4 4-4" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/><path d="M21 13v2a4 4 0 01-4 4H3" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                {task.recurring_type === 'daily' ? 'Diaria' : task.recurring_type === 'weekly' ? 'Semanal' : 'Mensal'}
+              </span>
+            )}
           </div>
           <p style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-primary)', marginBottom: 4 }}>{task.title}</p>
           {task.description && (

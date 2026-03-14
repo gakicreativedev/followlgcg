@@ -33,9 +33,9 @@ export default function CalendarioPage() {
       const supabase = createClient()
       const { data: team } = await supabase.from('profiles').select('*').eq('status', 'ativo')
 
-      let query = supabase.from('tasks').select('*').not('due_date', 'is', null)
+      let query = supabase.from('tasks').select('*').is('parent_task_id', null)
       if (prof.role === 'voluntario') {
-        query = query.eq('assigned_to', prof.id)
+        query = query.or(`assigned_to.eq.${prof.id},team_target.eq.${prof.team}`)
       }
       const { data: taskData } = await query
       if (taskData && team) {
@@ -50,11 +50,72 @@ export default function CalendarioPage() {
     load()
   }, [])
 
+  // Expand recurring tasks into the visible calendar range
+  function getRecurringDatesInRange(task: Task, rangeStart: Date, rangeEnd: Date): string[] {
+    if (!task.recurring_type || !task.due_date) return []
+    const dates: string[] = []
+    const start = new Date(task.due_date + 'T00:00:00')
+    const until = task.recurring_until ? new Date(task.recurring_until + 'T00:00:00') : new Date(rangeEnd)
+    const end = until < rangeEnd ? until : rangeEnd
+    const dayMap: Record<string, number> = { dom: 0, seg: 1, ter: 2, qua: 3, qui: 4, sex: 5, sab: 6 }
+
+    if (task.recurring_type === 'weekly' && task.recurring_days && task.recurring_days.length > 0) {
+      const targetDays = task.recurring_days.map(d => dayMap[d]).filter(d => d !== undefined)
+      const cursor = new Date(Math.max(start.getTime(), rangeStart.getTime()))
+      while (cursor <= end) {
+        const dateStr = cursor.toISOString().split('T')[0]
+        if (targetDays.includes(cursor.getDay()) && dateStr !== task.due_date) {
+          dates.push(dateStr)
+        }
+        cursor.setDate(cursor.getDate() + 1)
+      }
+    } else if (task.recurring_type === 'daily') {
+      const cursor = new Date(Math.max(start.getTime() + 86400000, rangeStart.getTime()))
+      while (cursor <= end) {
+        dates.push(cursor.toISOString().split('T')[0])
+        cursor.setDate(cursor.getDate() + 1)
+      }
+    } else if (task.recurring_type === 'monthly') {
+      const dayOfMonth = start.getDate()
+      const cursor = new Date(Math.max(start.getTime(), rangeStart.getTime()))
+      cursor.setDate(1) // go to first of month
+      while (cursor <= end) {
+        const testDate = new Date(cursor.getFullYear(), cursor.getMonth(), dayOfMonth)
+        const testStr = testDate.toISOString().split('T')[0]
+        if (testDate >= rangeStart && testDate <= end && testStr !== task.due_date) {
+          dates.push(testStr)
+        }
+        cursor.setMonth(cursor.getMonth() + 1)
+      }
+    }
+    return dates
+  }
+
   function getCalendarDays(): CalendarDay[] {
     const firstDay = new Date(year, month, 1)
-    const lastDay = new Date(year, month + 1, 0)
     const startDay = new Date(firstDay)
     startDay.setDate(startDay.getDate() - startDay.getDay())
+    const endDay = new Date(startDay)
+    endDay.setDate(endDay.getDate() + 41)
+
+    // Build a map of date -> tasks (including recurring expansions)
+    const dateTaskMap: Record<string, Task[]> = {}
+
+    for (const task of tasks) {
+      // Original due_date
+      if (task.due_date) {
+        if (!dateTaskMap[task.due_date]) dateTaskMap[task.due_date] = []
+        dateTaskMap[task.due_date].push(task)
+      }
+      // Recurring virtual dates
+      if (task.recurring_type) {
+        const recurDates = getRecurringDatesInRange(task, startDay, endDay)
+        for (const d of recurDates) {
+          if (!dateTaskMap[d]) dateTaskMap[d] = []
+          dateTaskMap[d].push({ ...task, _isRecurringInstance: true } as Task & { _isRecurringInstance: boolean })
+        }
+      }
+    }
 
     const days: CalendarDay[] = []
     const today = new Date()
@@ -63,15 +124,13 @@ export default function CalendarioPage() {
     for (let i = 0; i < 42; i++) {
       const date = new Date(startDay)
       date.setDate(startDay.getDate() + i)
-
       const dateStr = date.toISOString().split('T')[0]
-      const dayTasks = tasks.filter(t => t.due_date === dateStr)
 
       days.push({
         date,
         isCurrentMonth: date.getMonth() === month,
         isToday: date.getTime() === today.getTime(),
-        tasks: dayTasks,
+        tasks: dateTaskMap[dateStr] || [],
       })
     }
     return days
@@ -182,14 +241,15 @@ export default function CalendarioPage() {
 
                   {/* Task dots */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                    {day.tasks.slice(0, 3).map(t => (
-                      <div key={t.id} style={{
+                    {day.tasks.slice(0, 3).map((t, i) => (
+                      <div key={t.id + '-' + i} style={{
                         fontSize: 10, padding: '2px 6px', borderRadius: 4,
                         background: t.status === 'concluido' ? 'var(--green-bg)' : t.status === 'andamento' ? 'var(--blue-bg)' : 'var(--glass-3)',
                         color: t.status === 'concluido' ? 'var(--green)' : t.status === 'andamento' ? 'var(--blue)' : 'var(--text-secondary)',
                         overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                        fontWeight: 500,
+                        fontWeight: 500, display: 'flex', alignItems: 'center', gap: 3,
                       }}>
+                        {t.recurring_type && <svg width="8" height="8" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}><path d="M17 1l4 4-4 4" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/><path d="M3 11V9a4 4 0 014-4h14M7 23l-4-4 4-4" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/><path d="M21 13v2a4 4 0 01-4 4H3" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                         {t.title}
                       </div>
                     ))}
@@ -239,7 +299,15 @@ export default function CalendarioPage() {
                       <span className={`badge badge-${t.status}`} style={{ fontSize: 10 }}>{STATUS_LABELS[t.status]}</span>
                       <span className="badge badge-type" style={{ fontSize: 10 }}>{CONTENT_TYPE_LABELS[t.content_type]}</span>
                     </div>
-                    <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>{t.title}</p>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                      <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>{t.title}</p>
+                      {t.recurring_type && (
+                        <span style={{ fontSize: 9, color: 'var(--blue)', fontWeight: 500, background: 'var(--blue-bg)', padding: '2px 6px', borderRadius: 99, display: 'inline-flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
+                          <svg width="8" height="8" viewBox="0 0 24 24" fill="none"><path d="M17 1l4 4-4 4" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/><path d="M3 11V9a4 4 0 014-4h14M7 23l-4-4 4-4" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/><path d="M21 13v2a4 4 0 01-4 4H3" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                          {t.recurring_type === 'daily' ? 'Diaria' : t.recurring_type === 'weekly' ? 'Semanal' : 'Mensal'}
+                        </span>
+                      )}
+                    </div>
                     {t.assignee && (
                       <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                         <span style={{ color: 'var(--text-secondary)' }}>@</span> {t.assignee.name}
