@@ -15,7 +15,7 @@ const iconCal = <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rec
 const iconUser = <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.5"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
 const iconShield = <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 2l8 3v6c0 5-3.5 9.7-8 11C7.5 20.7 4 16 4 11V5l8-3z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
 const iconMegaphone = <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><path d="M13.73 21a2 2 0 01-3.46 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-const iconMusic = <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M9 18V5l12-2v13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><circle cx="6" cy="18" r="3" stroke="currentColor" strokeWidth="1.5"/><circle cx="18" cy="16" r="3" stroke="currentColor" strokeWidth="1.5"/></svg>
+const iconClipboardCheck = <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="5" y="2" width="14" height="20" rx="2" stroke="currentColor" strokeWidth="1.5"/><path d="M9 2v2h6V2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><path d="M9 13l2 2 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
 
 const NAV_ADMIN = [
   { label: 'Visão geral', href: '/dashboard', icon: iconGrid },
@@ -24,7 +24,7 @@ const NAV_ADMIN = [
   { label: 'Equipe', href: '/dashboard/equipe', icon: iconTeam },
   { label: 'Calendário', href: '/dashboard/calendario', icon: iconCal },
   { label: 'Atualizações', href: '/dashboard/atualizacoes', icon: iconMegaphone },
-  { label: 'Escalas', href: '/dashboard/escalas', icon: iconMusic },
+  { label: 'Escalas', href: '/dashboard/escalas', icon: iconClipboardCheck },
   { label: 'Administração', href: '/dashboard/admin', icon: iconShield },
   { label: 'Meu perfil', href: '/dashboard/perfil', icon: iconUser },
 ]
@@ -36,7 +36,7 @@ const NAV_PASTOR = [
   { label: 'Equipe', href: '/dashboard/equipe', icon: iconTeam },
   { label: 'Calendário', href: '/dashboard/calendario', icon: iconCal },
   { label: 'Atualizações', href: '/dashboard/atualizacoes', icon: iconMegaphone },
-  { label: 'Escalas', href: '/dashboard/escalas', icon: iconMusic },
+  { label: 'Escalas', href: '/dashboard/escalas', icon: iconClipboardCheck },
   { label: 'Meu perfil', href: '/dashboard/perfil', icon: iconUser },
 ]
 
@@ -46,14 +46,14 @@ const NAV_LIDER = [
   { label: 'Nova demanda', href: '/dashboard/nova-tarefa', icon: iconPlus },
   { label: 'Equipe', href: '/dashboard/equipe', icon: iconTeam },
   { label: 'Atualizações', href: '/dashboard/atualizacoes', icon: iconMegaphone },
-  { label: 'Escalas', href: '/dashboard/escalas', icon: iconMusic },
+  { label: 'Escalas', href: '/dashboard/escalas', icon: iconClipboardCheck },
   { label: 'Meu perfil', href: '/dashboard/perfil', icon: iconUser },
 ]
 
 const NAV_VOLUNTARIO = [
   { label: 'Minhas tarefas', href: '/dashboard', icon: iconCheck },
   { label: 'Atualizações', href: '/dashboard/atualizacoes', icon: iconMegaphone },
-  { label: 'Escalas', href: '/dashboard/escalas', icon: iconMusic },
+  { label: 'Escalas', href: '/dashboard/escalas', icon: iconClipboardCheck },
   { label: 'Meu perfil', href: '/dashboard/perfil', icon: iconUser },
 ]
 
