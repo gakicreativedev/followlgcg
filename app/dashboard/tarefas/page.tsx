@@ -50,7 +50,7 @@ export default function TarefasPage() {
     .filter(t => filterType === 'all' || t.content_type === filterType)
     .filter(t => filterTeam === 'all' || t.team_target === filterTeam)
 
-  const canEdit = profile && ['pastor', 'lider', 'vice_lider'].includes(profile.role)
+  const canEdit = profile && ['admin', 'pastor', 'lider', 'vice_lider'].includes(profile.role)
 
   return (
     <div className="fade-in">
