@@ -153,3 +153,74 @@ export const DAYS_LABELS: Record<string, string> = {
   sab: 'Sábado',
   dom: 'Domingo',
 }
+
+// Announcements
+export interface Announcement {
+  id: string
+  author_id: string
+  team_target: TeamSector | null
+  title: string
+  content: string
+  pinned: boolean
+  created_at: string
+  updated_at: string
+  author?: Profile
+}
+
+export interface AnnouncementComment {
+  id: string
+  announcement_id: string
+  user_id: string
+  user_name: string
+  user_avatar?: string
+  content: string
+  created_at: string
+}
+
+// Schedules
+export interface MinistryRole {
+  id: string
+  name: string
+  color: string
+  created_by?: string
+  created_at: string
+}
+
+export interface ServiceEvent {
+  id: string
+  title: string
+  date: string
+  start_time: string
+  end_time?: string
+  notes?: string
+  created_by?: string
+  created_at: string
+  updated_at: string
+  assignments?: ScheduleAssignment[]
+}
+
+export interface ScheduleAssignment {
+  id: string
+  event_id: string
+  role_id: string
+  user_id: string
+  confirmed: boolean
+  notes?: string
+  created_at: string
+  role?: MinistryRole
+  user?: Profile
+}
+
+export type SwapRequestStatus = 'pendente' | 'aceito' | 'recusado'
+
+export interface SwapRequest {
+  id: string
+  assignment_id: string
+  requester_id: string
+  target_user_id: string
+  status: SwapRequestStatus
+  created_at: string
+  requester?: Profile
+  target_user?: Profile
+  assignment?: ScheduleAssignment
+}
