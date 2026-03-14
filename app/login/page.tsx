@@ -112,15 +112,13 @@ export default function LoginPage() {
       return
     }
 
-    if (!authData.user) {
+    if (!authData.user || !authData.session) {
       setError('Erro inesperado ao criar conta.')
       setLoading(false)
       return
     }
 
-    // Login imediato para ter sessão antes do insert
-    await supabase.auth.signInWithPassword({ email: emailNorm, password: regPassword })
-
+    // signUp já retorna uma sessão ativa — usar ela para o insert
     const { error: profileErr } = await supabase.from('profiles').insert({
       id: crypto.randomUUID(),
       name: regName.trim(),
