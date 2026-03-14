@@ -10,9 +10,13 @@ function initials(name: string) {
   return name.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)
 }
 
-export default function TeamBoardsPage({ params }: { params: { teamId: string } }) {
+export default function TeamBoardsPage({ params }: { params: Promise<{ teamId: string }> }) {
   const router = useRouter()
-  const { teamId } = params
+  const [teamId, setTeamId] = useState('')
+
+  useEffect(() => {
+    params.then(p => setTeamId(p.teamId))
+  }, [params])
   const isValidTeam = Object.keys(TEAM_LABELS).includes(teamId)
   
   const [profile, setProfile] = useState<Profile | null>(null)
@@ -25,8 +29,8 @@ export default function TeamBoardsPage({ params }: { params: { teamId: string } 
   const [newBoardTitle, setNewBoardTitle] = useState('')
 
   async function load() {
-    if (!isValidTeam) {
-      setLoading(false)
+    if (!teamId || !isValidTeam) {
+      if (teamId) setLoading(false)
       return
     }
 
