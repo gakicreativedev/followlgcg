@@ -1,5 +1,5 @@
 'use client'
-import { Task, Checklist, ChecklistItem, Profile, TEAM_LABELS, TaskComment, TaskHistory, STATUS_LABELS } from '@/types/database'
+import { Task, Checklist, ChecklistItem, Profile, TEAM_LABELS, CONTENT_TYPE_LABELS, TaskComment, TaskHistory, STATUS_LABELS, ContentType, TaskStatus, TeamSector } from '@/types/database'
 import { createClient } from '@/lib/supabase'
 import { useState, useEffect } from 'react'
 import { getCurrentProfile } from '@/lib/auth'
@@ -9,14 +9,15 @@ interface TaskModalProps {
   isOpen: boolean
   onClose: () => void
   onUpdate: () => void
+  onDelete?: () => void
 }
 
-export default function TaskModal({ task, isOpen, onClose, onUpdate }: TaskModalProps) {
+export default function TaskModal({ task, isOpen, onClose, onUpdate, onDelete }: TaskModalProps) {
   const [loading, setLoading] = useState(false)
   const [checklists, setChecklists] = useState<(Checklist & { items: ChecklistItem[] })[]>([])
   const [newChecklistTitle, setNewChecklistTitle] = useState('')
   const [newItemContents, setNewItemContents] = useState<Record<string, string>>({})
-  
+
   const [gdriveLink, setGdriveLink] = useState(task.gdrive_link || '')
   const [imageUrl, setImageUrl] = useState(task.image_url || '')
   const [uploadingImage, setUploadingImage] = useState(false)
@@ -29,6 +30,19 @@ export default function TaskModal({ task, isOpen, onClose, onUpdate }: TaskModal
   const [newComment, setNewComment] = useState('')
   const [currentProfile, setCurrentProfile] = useState<Profile | null>(null)
   const [history, setHistory] = useState<(TaskHistory & { changerName?: string })[]>([])
+
+  // Edit mode states
+  const [isEditing, setIsEditing] = useState(false)
+  const [editTitle, setEditTitle] = useState(task.title)
+  const [editDescription, setEditDescription] = useState(task.description || '')
+  const [editContentType, setEditContentType] = useState<ContentType>(task.content_type)
+  const [editPriority, setEditPriority] = useState(task.priority)
+  const [editDueDate, setEditDueDate] = useState(task.due_date || '')
+  const [editStatus, setEditStatus] = useState<TaskStatus>(task.status)
+  const [editTeamTarget, setEditTeamTarget] = useState<TeamSector | ''>(task.team_target || '')
+  const [saving, setSaving] = useState(false)
+
+  const canEdit = currentProfile && ['admin', 'pastor', 'lider', 'vice_lider'].includes(currentProfile.role)
 
   // Extrair ID do GDrive se for link longo
   const getGdriveId = (link: string) => {
@@ -45,6 +59,15 @@ export default function TaskModal({ task, isOpen, onClose, onUpdate }: TaskModal
       loadTeamMembers()
       loadComments()
       loadHistory()
+      // Reset edit state when opening
+      setIsEditing(false)
+      setEditTitle(task.title)
+      setEditDescription(task.description || '')
+      setEditContentType(task.content_type)
+      setEditPriority(task.priority)
+      setEditDueDate(task.due_date || '')
+      setEditStatus(task.status)
+      setEditTeamTarget(task.team_target || '')
     }
   }, [isOpen, task.id])
 
@@ -124,7 +147,7 @@ export default function TaskModal({ task, isOpen, onClose, onUpdate }: TaskModal
     if (!lists) return
 
     const { data: items } = await supabase.from('checklist_items').select('*').in('checklist_id', lists.map(l => l.id)).order('position', { ascending: true })
-    
+
     const combined = lists.map(l => ({
       ...l,
       items: (items || []).filter(i => i.checklist_id === l.id)
@@ -164,7 +187,7 @@ export default function TaskModal({ task, isOpen, onClose, onUpdate }: TaskModal
     }).select().single()
 
     if (data) {
-      setChecklists(checklists.map(c => 
+      setChecklists(checklists.map(c =>
         c.id === checklistId ? { ...c, items: [...c.items, data] } : c
       ))
       setNewItemContents({ ...newItemContents, [checklistId]: '' })
@@ -175,9 +198,9 @@ export default function TaskModal({ task, isOpen, onClose, onUpdate }: TaskModal
     const supabase = createClient()
     const newVal = !item.is_completed
     await supabase.from('checklist_items').update({ is_completed: newVal }).eq('id', item.id)
-    
-    setChecklists(checklists.map(c => 
-      c.id === item.checklist_id 
+
+    setChecklists(checklists.map(c =>
+      c.id === item.checklist_id
         ? { ...c, items: c.items.map(i => i.id === item.id ? { ...i, is_completed: newVal } : i) }
         : c
     ))
@@ -202,17 +225,15 @@ export default function TaskModal({ task, isOpen, onClose, onUpdate }: TaskModal
     const file = e.target.files?.[0]
     if (!file) return
     setUploadingImage(true)
-    
-    // Upload for a bucket called 'task_attachments'. Note: the DB/RLS needs to be setup for this.
+
     const supabase = createClient()
     const fileExt = file.name.split('.').pop()
     const fileName = `${task.id}-${Math.random()}.${fileExt}`
-    
+
     const { data, error } = await supabase.storage.from('task_attachments').upload(fileName, file)
-    
+
     if (error) {
        console.error(error)
-       // Fallback: se não tiver o storage configurado, avisa
        alert("Erro ao subir imagem. O Bucket 'task_attachments' foi criado e deixado como público?")
        setUploadingImage(false)
        return
@@ -225,18 +246,63 @@ export default function TaskModal({ task, isOpen, onClose, onUpdate }: TaskModal
     onUpdate()
   }
 
+  async function handleSaveEdit() {
+    if (!editTitle.trim()) return
+    setSaving(true)
+    const supabase = createClient()
+    await supabase.from('tasks').update({
+      title: editTitle.trim(),
+      description: editDescription.trim() || null,
+      content_type: editContentType,
+      priority: editPriority,
+      due_date: editDueDate || null,
+      status: editStatus,
+      team_target: editTeamTarget || null,
+      updated_at: new Date().toISOString(),
+    }).eq('id', task.id)
+    setSaving(false)
+    setIsEditing(false)
+    onUpdate()
+  }
+
+  function handleCancelEdit() {
+    setEditTitle(task.title)
+    setEditDescription(task.description || '')
+    setEditContentType(task.content_type)
+    setEditPriority(task.priority)
+    setEditDueDate(task.due_date || '')
+    setEditStatus(task.status)
+    setEditTeamTarget(task.team_target || '')
+    setIsEditing(false)
+  }
+
+  async function handleDeleteTask() {
+    if (!confirm(`Tem certeza que deseja excluir a tarefa "${task.title}"? Esta ação não pode ser desfeita.`)) return
+    const supabase = createClient()
+    await supabase.from('tasks').delete().eq('id', task.id)
+    onClose()
+    onDelete?.()
+    onUpdate()
+  }
+
   if (!isOpen) return null
+
+  const selectStyle = {
+    width: '100%', fontSize: 12, padding: '6px 10px', borderRadius: 8,
+    background: 'var(--glass-1)', border: '1px solid var(--border)',
+    color: 'var(--text-primary)', cursor: 'pointer',
+  }
 
   return (
     <div style={{
-      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
+      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
       backgroundColor: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(5px)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999,
       padding: 24
     }}>
       <div className="card fade-in" style={{
         width: '100%', maxWidth: 840, maxHeight: '90vh', overflowY: 'auto',
-        background: 'var(--bg-default)', border: '1px solid var(--border-highlight)', 
+        background: 'var(--bg-default)', border: '1px solid var(--border-highlight)',
         padding: '32px 40px', position: 'relative'
       }}>
         {/* Close Button */}
@@ -247,22 +313,81 @@ export default function TaskModal({ task, isOpen, onClose, onUpdate }: TaskModal
 
         {/* Header */}
         <div style={{ marginBottom: 24 }}>
-          <h2 style={{ fontSize: 24, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 }}>{task.title}</h2>
-          <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Na lista <span style={{ textDecoration: 'underline' }}>{task.status}</span></p>
+          {isEditing ? (
+            <input
+              value={editTitle}
+              onChange={e => setEditTitle(e.target.value)}
+              style={{
+                fontSize: 24, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8,
+                width: '100%', background: 'var(--glass-1)', border: '1px solid var(--border-strong)',
+                borderRadius: 8, padding: '8px 12px',
+              }}
+            />
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <h2 style={{ fontSize: 24, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 }}>{task.title}</h2>
+              {canEdit && (
+                <button
+                  onClick={() => setIsEditing(true)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 14, padding: 4, transition: 'color 0.2s', marginBottom: 8 }}
+                  onMouseEnter={e => e.currentTarget.style.color = 'var(--text-primary)'}
+                  onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+                  title="Editar tarefa"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                </button>
+              )}
+            </div>
+          )}
+          {isEditing ? (
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <select value={editStatus} onChange={e => setEditStatus(e.target.value as TaskStatus)} style={{ ...selectStyle, width: 'auto' }}>
+                {Object.entries(STATUS_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              </select>
+            </div>
+          ) : (
+            <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Na lista <span style={{ textDecoration: 'underline' }}>{STATUS_LABELS[task.status]}</span></p>
+          )}
         </div>
+
+        {/* Edit action buttons */}
+        {isEditing && (
+          <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+            <button className="btn btn-primary" onClick={handleSaveEdit} disabled={saving} style={{ padding: '8px 20px', fontSize: 13 }}>
+              {saving ? 'Salvando...' : 'Salvar alterações'}
+            </button>
+            <button className="btn" onClick={handleCancelEdit} style={{ padding: '8px 16px', fontSize: 13 }}>
+              Cancelar
+            </button>
+          </div>
+        )}
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 32 }}>
           {/* Main Area (Left) */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
-            
+
             {/* Descrição */}
             <div>
               <h3 style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
                 Descrição
               </h3>
-              <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6, background: 'var(--glass-1)', padding: 16, borderRadius: 8, border: '1px solid var(--border)' }}>
-                {task.description || "Nenhuma descrição detalhada fornecida."}
-              </p>
+              {isEditing ? (
+                <textarea
+                  value={editDescription}
+                  onChange={e => setEditDescription(e.target.value)}
+                  rows={4}
+                  style={{
+                    width: '100%', fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.6,
+                    background: 'var(--glass-1)', padding: 16, borderRadius: 8, border: '1px solid var(--border-strong)',
+                    resize: 'vertical',
+                  }}
+                  placeholder="Descrição da tarefa..."
+                />
+              ) : (
+                <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6, background: 'var(--glass-1)', padding: 16, borderRadius: 8, border: '1px solid var(--border)' }}>
+                  {task.description || "Nenhuma descrição detalhada fornecida."}
+                </p>
+              )}
             </div>
 
             {/* Checklists */}
@@ -281,7 +406,7 @@ export default function TaskModal({ task, isOpen, onClose, onUpdate }: TaskModal
                       <h4 style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>{c.title}</h4>
                       <button onClick={() => handleDeleteChecklist(c.id)} style={{ fontSize: 11, background: 'transparent', border: 'none', color: 'var(--red)', cursor: 'pointer' }}>Excluir</button>
                     </div>
-                    
+
                     {/* Progress Bar */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
                       <span style={{ fontSize: 11, color: 'var(--text-muted)', width: 30 }}>{pct}%</span>
@@ -294,9 +419,9 @@ export default function TaskModal({ task, isOpen, onClose, onUpdate }: TaskModal
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
                       {c.items.map(item => (
                         <div key={item.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '6px 8px', borderRadius: 6, transition: 'background 0.2s', background: item.is_completed ? 'var(--glass-1)' : 'transparent' }}>
-                          <input 
-                            type="checkbox" 
-                            checked={item.is_completed} 
+                          <input
+                            type="checkbox"
+                            checked={item.is_completed}
                             onChange={() => toggleChecklistItem(item)}
                             style={{ marginTop: 3, cursor: 'pointer' }}
                           />
@@ -307,10 +432,10 @@ export default function TaskModal({ task, isOpen, onClose, onUpdate }: TaskModal
 
                     {/* Add Item form */}
                     <form onSubmit={(e) => handleAddChecklistItem(c.id, e)} style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                      <input 
-                        type="text" 
-                        placeholder="Adicionar um item..." 
-                        className="input-field" 
+                      <input
+                        type="text"
+                        placeholder="Adicionar um item..."
+                        className="input-field"
                         style={{ flex: 1, padding: '8px 12px', fontSize: 13, background: 'transparent' }}
                         value={newItemContents[c.id] || ''}
                         onChange={e => setNewItemContents({ ...newItemContents, [c.id]: e.target.value })}
@@ -325,10 +450,10 @@ export default function TaskModal({ task, isOpen, onClose, onUpdate }: TaskModal
               <form onSubmit={handleCreateChecklist} style={{ marginTop: 16, background: 'var(--glass-1)', padding: 16, borderRadius: 8, border: '1px solid var(--border)' }}>
                 <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-secondary)', marginBottom: 8 }}>Nova Checklist</p>
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <input 
-                    type="text" 
-                    placeholder="Ex: Tarefas de Edição" 
-                    className="input-field" 
+                  <input
+                    type="text"
+                    placeholder="Ex: Tarefas de Edição"
+                    className="input-field"
                     style={{ flex: 1, background: 'var(--bg-default)' }}
                     value={newChecklistTitle}
                     onChange={e => setNewChecklistTitle(e.target.value)}
@@ -344,14 +469,14 @@ export default function TaskModal({ task, isOpen, onClose, onUpdate }: TaskModal
                {imageUrl ? (
                  <div style={{ position: 'relative', display: 'inline-block' }}>
                    <img src={imageUrl} alt="Anexo" style={{ maxWidth: '100%', maxHeight: 300, borderRadius: 8, border: '1px solid var(--border)' }} />
-                   <button 
+                   <button
                      onClick={async () => {
                        if(!confirm("Remover imagem?")) return
                        await createClient().from('tasks').update({ image_url: null }).eq('id', task.id)
                        setImageUrl('')
                        onUpdate()
                      }}
-                     className="btn" 
+                     className="btn"
                      style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(0,0,0,0.6)', color: 'white', border: 'none', padding: '4px 8px', fontSize: 11 }}
                    >Remover</button>
                  </div>
@@ -373,7 +498,7 @@ export default function TaskModal({ task, isOpen, onClose, onUpdate }: TaskModal
             {/* Comentários */}
             <div>
               <h3 style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 16 }}>Comentários</h3>
-              
+
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 16 }}>
                 {comments.length === 0 && (
                   <p style={{ fontSize: 13, color: 'var(--text-muted)', fontStyle: 'italic' }}>Nenhum comentário ainda.</p>
@@ -415,15 +540,15 @@ export default function TaskModal({ task, isOpen, onClose, onUpdate }: TaskModal
 
           {/* Sidebar (Right) */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-            
+
             {/* Google Drive Embed */}
             <div>
               <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 8 }}>Google Drive Link</p>
               <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-                <input 
-                  type="text" 
-                  className="input-field" 
-                  placeholder="Cole a URL do Drive..." 
+                <input
+                  type="text"
+                  className="input-field"
+                  placeholder="Cole a URL do Drive..."
                   value={gdriveLink}
                   onChange={e => setGdriveLink(e.target.value)}
                   style={{ flex: 1, fontSize: 12 }}
@@ -433,10 +558,10 @@ export default function TaskModal({ task, isOpen, onClose, onUpdate }: TaskModal
 
               {gdriveId && (
                 <div style={{ width: '100%', height: 260, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)', background: 'var(--glass-1)' }}>
-                  <iframe 
-                    src={`https://drive.google.com/embeddedfolderview?id=${gdriveId}#grid`} 
-                    width="100%" 
-                    height="100%" 
+                  <iframe
+                    src={`https://drive.google.com/embeddedfolderview?id=${gdriveId}#grid`}
+                    width="100%"
+                    height="100%"
                     frameBorder="0"
                     title="Google Drive Preview"
                   ></iframe>
@@ -465,16 +590,65 @@ export default function TaskModal({ task, isOpen, onClose, onUpdate }: TaskModal
               ) : (
                 <p style={{ fontSize: 14, color: 'var(--text-primary)', fontWeight: 500, marginBottom: 16 }}>{task.assignee?.name || 'Não atribuído'}</p>
               )}
-              {task.team_target && (
+              {task.team_target && !isEditing && (
                 <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 16, marginTop: -8 }}>Mostrando apenas membros de <span style={{ color: 'var(--text-secondary)' }}>{TEAM_LABELS[task.team_target]}</span></p>
               )}
 
-              <p style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 4 }}>Criado por</p>
-              <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16 }}>{task.creator?.name || 'Desconhecido'}</p>
+              {isEditing ? (
+                <>
+                  <div style={{ marginBottom: 12 }}>
+                    <p style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 4 }}>Tipo de conteúdo</p>
+                    <select value={editContentType} onChange={e => setEditContentType(e.target.value as ContentType)} style={selectStyle}>
+                      {Object.entries(CONTENT_TYPE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                    </select>
+                  </div>
+                  <div style={{ marginBottom: 12 }}>
+                    <p style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 4 }}>Prioridade</p>
+                    <select value={editPriority} onChange={e => setEditPriority(parseInt(e.target.value))} style={selectStyle}>
+                      <option value="1">Alta</option>
+                      <option value="2">Média</option>
+                      <option value="3">Baixa</option>
+                    </select>
+                  </div>
+                  <div style={{ marginBottom: 12 }}>
+                    <p style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 4 }}>Equipe destino</p>
+                    <select value={editTeamTarget} onChange={e => setEditTeamTarget(e.target.value as TeamSector)} style={selectStyle}>
+                      <option value="">Nenhuma</option>
+                      {Object.entries(TEAM_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                    </select>
+                  </div>
+                  <div style={{ marginBottom: 12 }}>
+                    <p style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 4 }}>Prazo</p>
+                    <input type="date" value={editDueDate} onChange={e => setEditDueDate(e.target.value)} style={{ ...selectStyle, cursor: 'text' }} />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 4 }}>Criado por</p>
+                  <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16 }}>{task.creator?.name || 'Desconhecido'}</p>
 
-              <p style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 4 }}>Data Opcional</p>
-              <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{task.due_date ? new Date(task.due_date + 'T00:00:00').toLocaleDateString('pt-BR') : 'Sem data'}</p>
+                  <p style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 4 }}>Data Opcional</p>
+                  <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{task.due_date ? new Date(task.due_date + 'T00:00:00').toLocaleDateString('pt-BR') : 'Sem data'}</p>
+                </>
+              )}
             </div>
+
+            {/* Delete Task Button */}
+            {canEdit && (
+              <button
+                onClick={handleDeleteTask}
+                style={{
+                  width: '100%', padding: '10px 16px', fontSize: 13, fontWeight: 500,
+                  background: 'transparent', border: '1px solid rgba(239,107,107,0.3)',
+                  borderRadius: 10, color: 'var(--red)', cursor: 'pointer',
+                  transition: 'all 0.2s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,107,107,0.1)'; e.currentTarget.style.borderColor = 'rgba(239,107,107,0.5)' }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'rgba(239,107,107,0.3)' }}
+              >
+                Excluir tarefa
+              </button>
+            )}
 
             {/* Histórico de Atividades */}
             {history.length > 0 && (

@@ -8,6 +8,7 @@ interface TaskCardProps {
   task: Task
   canEdit?: boolean
   onUpdate?: () => void
+  onDelete?: () => void
 }
 
 const PRIORITY_LABELS = ['', 'Alta', 'Média', 'Baixa']
@@ -24,7 +25,7 @@ function formatDate(date?: string) {
   return new Date(date + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
 }
 
-export default function TaskCard({ task, canEdit = false, onUpdate }: TaskCardProps) {
+export default function TaskCard({ task, canEdit = false, onUpdate, onDelete }: TaskCardProps) {
   const [loading, setLoading] = useState(false)
   const [isModalOpen, setIsModalOpen] = useState(false)
 
@@ -124,11 +125,12 @@ export default function TaskCard({ task, canEdit = false, onUpdate }: TaskCardPr
         </div>
       </div>
 
-      <TaskModal 
-        task={task} 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        onUpdate={() => onUpdate?.()} 
+      <TaskModal
+        task={task}
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onUpdate={() => onUpdate?.()}
+        onDelete={() => { setIsModalOpen(false); onDelete?.() }}
       />
     </>
   )
