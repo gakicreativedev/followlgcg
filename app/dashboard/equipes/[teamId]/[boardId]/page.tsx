@@ -6,10 +6,15 @@ import { Profile, Task, KanbanBoard, KanbanList } from '@/types/database'
 import TaskCard from '@/components/TaskCard'
 import { useRouter } from 'next/navigation'
 
-export default function BoardPage({ params }: { params: { teamId: string, boardId: string } }) {
+export default function BoardPage({ params }: { params: Promise<{ teamId: string, boardId: string }> }) {
   const router = useRouter()
-  const { teamId, boardId } = params
-  
+  const [teamId, setTeamId] = useState('')
+  const [boardId, setBoardId] = useState('')
+
+  useEffect(() => {
+    params.then(p => { setTeamId(p.teamId); setBoardId(p.boardId) })
+  }, [params])
+
   const [profile, setProfile] = useState<Profile | null>(null)
   const [board, setBoard] = useState<KanbanBoard | null>(null)
   const [lists, setLists] = useState<KanbanList[]>([])
@@ -26,6 +31,7 @@ export default function BoardPage({ params }: { params: { teamId: string, boardI
   const [dragOverListId, setDragOverListId] = useState<string | null>(null)
 
   async function load() {
+    if (!boardId) return
     const prof = await getCurrentProfile()
     if (!prof || (prof.role !== 'admin' && prof.role !== 'pastor' && prof.role !== 'lider')) {
       router.push('/dashboard')

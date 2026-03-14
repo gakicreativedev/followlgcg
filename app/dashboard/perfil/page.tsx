@@ -15,6 +15,14 @@ export default function PerfilPage() {
   const [nameValue, setNameValue] = useState('')
   const [savingName, setSavingName] = useState(false)
 
+  // Troca de senha
+  const [showPasswordForm, setShowPasswordForm] = useState(false)
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [savingPassword, setSavingPassword] = useState(false)
+  const [passwordMsg, setPasswordMsg] = useState('')
+  const [passwordError, setPasswordError] = useState('')
+
   useEffect(() => {
     async function load() {
       const prof = await getCurrentProfile()
@@ -68,6 +76,37 @@ export default function PerfilPage() {
     setProfile({ ...profile, name: nameValue.trim() })
     setEditingName(false)
     setSavingName(false)
+  }
+
+  async function handleChangePassword(e: React.FormEvent) {
+    e.preventDefault()
+    setPasswordError('')
+    setPasswordMsg('')
+
+    if (newPassword.length < 6) {
+      setPasswordError('A senha deve ter pelo menos 6 caracteres.')
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError('As senhas não coincidem.')
+      return
+    }
+
+    setSavingPassword(true)
+    const supabase = createClient()
+    const { error: updateErr } = await supabase.auth.updateUser({ password: newPassword })
+
+    if (updateErr) {
+      setPasswordError(`Erro: ${updateErr.message}`)
+      setSavingPassword(false)
+      return
+    }
+
+    setPasswordMsg('Senha alterada com sucesso!')
+    setNewPassword('')
+    setConfirmPassword('')
+    setSavingPassword(false)
+    setTimeout(() => { setShowPasswordForm(false); setPasswordMsg('') }, 2000)
   }
 
   if (loading || !profile) return null
@@ -176,6 +215,45 @@ export default function PerfilPage() {
             <p style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 6 }}>Dias disponíveis</p>
             <p style={{ fontSize: 15, color: 'var(--text-primary)', fontWeight: 500 }}>{profile.available_days?.join(', ') || 'Não informado'}</p>
           </div>
+        </div>
+
+        <div className="divider" />
+
+        {/* Change Password */}
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: showPasswordForm ? 16 : 0 }}>
+            <div>
+              <p style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-primary)' }}>Senha</p>
+              <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>Altere sua senha de acesso</p>
+            </div>
+            <button
+              onClick={() => { setShowPasswordForm(!showPasswordForm); setPasswordError(''); setPasswordMsg('') }}
+              className="btn"
+              style={{ fontSize: 13, padding: '8px 16px' }}
+            >
+              {showPasswordForm ? 'Cancelar' : 'Alterar senha'}
+            </button>
+          </div>
+
+          {showPasswordForm && (
+            <form onSubmit={handleChangePassword}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4, display: 'block' }}>Nova senha</label>
+                  <input type="password" placeholder="••••••••" value={newPassword} onChange={e => setNewPassword(e.target.value)} required autoComplete="new-password" />
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4, display: 'block' }}>Confirmar</label>
+                  <input type="password" placeholder="••••••••" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required autoComplete="new-password" />
+                </div>
+              </div>
+              {passwordError && <p style={{ fontSize: 12, color: 'var(--red)', marginBottom: 12 }}>{passwordError}</p>}
+              {passwordMsg && <p style={{ fontSize: 12, color: '#34c759', marginBottom: 12 }}>{passwordMsg}</p>}
+              <button type="submit" className="btn btn-primary" disabled={savingPassword} style={{ padding: '10px 20px', fontSize: 13 }}>
+                {savingPassword ? 'Salvando...' : 'Salvar nova senha'}
+              </button>
+            </form>
+          )}
         </div>
       </div>
     </div>
