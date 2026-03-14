@@ -67,7 +67,7 @@ export default function DashboardPage() {
     concluido: tasks.filter(t => t.status === 'concluido').length,
   }
 
-  const canEdit = ['pastor', 'lider', 'vice_lider'].includes(profile.role) || profile.role === 'voluntario'
+  const canEdit = ['admin', 'pastor', 'lider', 'vice_lider', 'voluntario'].includes(profile.role)
 
   // Exportar CSV
   function exportCSV() {
