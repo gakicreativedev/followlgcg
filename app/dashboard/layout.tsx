@@ -20,7 +20,6 @@ const iconClipboardCheck = <svg width="16" height="16" viewBox="0 0 24 24" fill=
 const NAV_ADMIN = [
   { label: 'Visão geral', href: '/dashboard', icon: iconGrid },
   { label: 'Tarefas', href: '/dashboard/tarefas', icon: iconCheck },
-  { label: 'Nova demanda', href: '/dashboard/nova-tarefa', icon: iconPlus },
   { label: 'Equipe', href: '/dashboard/equipe', icon: iconTeam },
   { label: 'Calendário', href: '/dashboard/calendario', icon: iconCal },
   { label: 'Atualizações', href: '/dashboard/atualizacoes', icon: iconMegaphone },
@@ -32,7 +31,6 @@ const NAV_ADMIN = [
 const NAV_PASTOR = [
   { label: 'Visão geral', href: '/dashboard', icon: iconGrid },
   { label: 'Tarefas', href: '/dashboard/tarefas', icon: iconCheck },
-  { label: 'Nova demanda', href: '/dashboard/nova-tarefa', icon: iconPlus },
   { label: 'Equipe', href: '/dashboard/equipe', icon: iconTeam },
   { label: 'Calendário', href: '/dashboard/calendario', icon: iconCal },
   { label: 'Atualizações', href: '/dashboard/atualizacoes', icon: iconMegaphone },
@@ -43,7 +41,6 @@ const NAV_PASTOR = [
 const NAV_LIDER = [
   { label: 'Painel', href: '/dashboard', icon: iconGrid },
   { label: 'Tarefas', href: '/dashboard/tarefas', icon: iconCheck },
-  { label: 'Nova demanda', href: '/dashboard/nova-tarefa', icon: iconPlus },
   { label: 'Equipe', href: '/dashboard/equipe', icon: iconTeam },
   { label: 'Atualizações', href: '/dashboard/atualizacoes', icon: iconMegaphone },
   { label: 'Escalas', href: '/dashboard/escalas', icon: iconClipboardCheck },

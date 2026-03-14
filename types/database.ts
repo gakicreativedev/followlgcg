@@ -88,6 +88,10 @@ export interface Task {
   notes?: string
   created_at: string
   updated_at: string
+  recurring_type?: string | null
+  recurring_days?: string[] | null
+  recurring_until?: string | null
+  parent_task_id?: string | null
   assignee?: Profile
   creator?: Profile
 }
